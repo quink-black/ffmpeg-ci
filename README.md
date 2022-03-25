@@ -20,6 +20,7 @@
 ./cibuild.sh --help
 Use --path to specify ffmpeg source directory
 Use --skip_test_case to skip some test cases, separated by comma
+Use --skip_test to skip all test cases
 Use --enable_asan 1 to enable address sanitizer
 ```
 
@@ -32,6 +33,25 @@ set -x
 
 cd ${WORKSPACE}/ffmpeg-build
 ./cibuild.sh --path ${WORKSPACE}/ffmpeg --enable_asan 1
+```
+
+如果手动执行编译出来的FFmpeg命令，先执行下`source env.sh`，把install下的lib加进LD_LIBRARY_PATH。
+
+```
+$ source env.sh
+$ cd build/ffmpeg/
+$ ./ffmpeg -version
+ffmpeg version N-106415-gfa12d808d7 Copyright (c) 2000-2022 the FFmpeg developers
+built with gcc 7 (Ubuntu 7.5.0-3ubuntu1~18.04)
+configuration: --prefix=/mnt/src/src/ffmpeg-ci/install --extra-cflags=-I/mnt/src/src/ffmpeg-ci/install/include --extra-ldflags='-L/mnt/src/src/ffmpeg-ci/install/lib -static-libasan' --extra-libs='-lstdc++ ' --enable-libvmaf --enable-libx264 --enable-libdav1d --enable-nonfree --enable-gpl --enable-version3 --enable-libfreetype --enable-libfontconfig --disable-doc --samples=/mnt/src/src/ffmpeg-ci/ffmpeg-fate-sample --ignore-tests= --disable-stripping --disable-optimizations --enable-openssl --toolchain=gcc-asan
+libavutil      57. 24.101 / 57. 24.101
+libavcodec     59. 25.100 / 59. 25.100
+libavformat    59. 20.101 / 59. 20.101
+libavdevice    59.  6.100 / 59.  6.100
+libavfilter     8. 29.100 /  8. 29.100
+libswscale      6.  6.100 /  6.  6.100
+libswresample   4.  6.100 /  4.  6.100
+libpostproc    56.  5.100 / 56.  5.100
 ```
 
 ## 工具
