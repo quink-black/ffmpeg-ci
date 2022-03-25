@@ -11,6 +11,7 @@ while [ $# -gt 0 ]; do
         --help)
             echo "Use --path to specify ffmpeg source directory"
             echo "Use --skip_test_case to skip some test cases, separated by comma"
+            echo "Use --skip_test to skip all test cases"
             echo "Use --enable_asan 1 to enable address sanitizer"
             exit 1
             ;;
