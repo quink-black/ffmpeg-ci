@@ -1,0 +1,21 @@
+[submodule "dav1d"]
+	path = dav1d
+	url = https://github.com/videolan/dav1d.git
+[submodule "vmaf"]
+	path = vmaf
+	url = https://github.com/Netflix/vmaf.git
+[submodule "x264"]
+	path = x264
+	url = https://github.com/mirror/x264.git
+[submodule "meson"]
+	path = meson
+	url = https://github.com/mesonbuild/meson.git
+[submodule "nasm"]
+	path = nasm
+	url = https://github.com/netwide-assembler/nasm.git
+[submodule "l-smash"]
+	path = l-smash
+	url = https://github.com/l-smash/l-smash.git
+[submodule "openssl"]
+	path = openssl
+	url = https://github.com/openssl/openssl.git
