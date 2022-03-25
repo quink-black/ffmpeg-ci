@@ -107,6 +107,7 @@ $ffmpeg_src/configure \
     --enable-version3 \
     --enable-libfreetype \
     --enable-libfontconfig \
+    --enable-libsrt \
     --disable-doc \
     --samples=${fate_samples} \
     --ignore-tests="${skip_test_case}" \

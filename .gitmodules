@@ -19,3 +19,6 @@
 [submodule "openssl"]
 	path = openssl
 	url = https://github.com/openssl/openssl.git
+[submodule "srt"]
+	path = srt
+	url = https://github.com/Haivision/srt.git
