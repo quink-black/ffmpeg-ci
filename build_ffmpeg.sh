@@ -59,6 +59,10 @@ extra_config=" "
 extra_ldflags=" "
 extra_libs=""
 
+if [ $(uname) = 'Linux' ]; then
+    extra_libs="$extra_libs -pthread"
+fi
+
 if grep -q enable-libav1d ${ffmpeg_src}/configure; then
     if [ -d ${install_dir}/include/av1d ]; then
         extra_config="${extra_config} --enable-libav1d"
