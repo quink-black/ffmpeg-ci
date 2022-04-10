@@ -2,10 +2,6 @@
 
 set -e
 
-DIR="$(cd "$(dirname "$0")" && pwd)"
-
-build_dir=${DIR}/build
-install_dir=${DIR}/install
 ffmpeg_build=${build_dir}/ffmpeg
 fate_samples=${DIR}/ffmpeg-fate-sample
 

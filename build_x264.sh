@@ -2,10 +2,6 @@
 
 set -e
 
-DIR="$(cd "$(dirname "$0")" && pwd)"
-
-build_dir=${DIR}/build
-install_dir=${DIR}/install
 x264_src=${DIR}/x264
 
 pushd $x264_src

@@ -2,9 +2,6 @@
 
 set -e
 
-DIR="$(cd "$(dirname "$0")" && pwd)"
-build_dir=${DIR}/build
-install_dir=${DIR}/install
 vmaf_src=${DIR}/vmaf
 
 mkdir -p $build_dir

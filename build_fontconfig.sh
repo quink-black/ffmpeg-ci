@@ -7,9 +7,6 @@ if pkg-config --exists fontconfg-devel; then
     exit 0
 fi
 
-DIR="$(cd "$(dirname "$0")" && pwd)"
-build_dir=${DIR}/build
-install_dir=${DIR}/install
 tarball=${DIR}/fontconfig*.tar.gz
 
 mkdir -p $build_dir
