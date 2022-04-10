@@ -102,6 +102,7 @@ $ffmpeg_src/configure \
     --pkg-config-flags='--static' \
     --enable-libvmaf \
     --enable-libx264 \
+    --enable-libx265 \
     --enable-libdav1d \
     --enable-nonfree \
     --enable-gpl \

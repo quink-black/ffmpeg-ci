@@ -22,3 +22,6 @@
 [submodule "srt"]
 	path = srt
 	url = https://github.com/Haivision/srt.git
+[submodule "x265"]
+	path = x265
+	url = https://github.com/videolan/x265.git
