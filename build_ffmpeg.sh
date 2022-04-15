@@ -11,6 +11,7 @@ do_test=0
 do_install=0
 skip_test_case=""
 enable_asan=0
+enable_opt=0
 while [ $# -gt 0 ]; do
     case $1 in
         --help)
@@ -38,6 +39,11 @@ while [ $# -gt 0 ]; do
         --enable_asan)
             enable_asan=$2
             echo "enable_asan $enable_asan"
+            shift
+            ;;
+        --enable_opt)
+            enable_opt=$2
+            echo "enable_opt $enable_opt"
             shift
             ;;
     esac
@@ -86,6 +92,10 @@ if [ "$enable_asan" -eq 1 ]; then
     fi
 fi
 
+if [ "$enable_opt" -eq 0 ]; then
+    extra_config="${extra_config} --disable-optimizations"
+fi
+
 mkdir -p $build_dir
 
 pushd $build_dir
@@ -114,7 +124,6 @@ $ffmpeg_src/configure \
     --samples=${fate_samples} \
     --ignore-tests="${skip_test_case}" \
     --disable-stripping \
-    --disable-optimizations \
     --enable-openssl \
     ${extra_config} 
 
