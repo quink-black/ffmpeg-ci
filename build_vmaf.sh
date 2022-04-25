@@ -12,7 +12,12 @@ pushd third_party/libsvm
 make lib
 popd
 
-$meson_bin setup $build_dir/vmaf libvmaf --buildtype release -Ddefault_library=static -Denable_float=true --prefix=$install_dir
+$meson_bin setup $build_dir/vmaf libvmaf \
+    --buildtype release \
+    -Ddefault_library=static \
+    -Denable_float=true \
+    --prefix=$install_dir \
+    --libdir=$install_dir/lib
 
 popd # vmaf_src
 

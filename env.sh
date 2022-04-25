@@ -11,8 +11,5 @@ export PKG_CONFIG_PATH=${install_dir}/lib/pkgconfig:$PKG_CONFIG_PATH
 export LD_LIBRARY_PATH="${install_dir}/lib64:${LD_LIBRARY_PATH}"
 export PKG_CONFIG_PATH=${install_dir}/lib64/pkgconfig:$PKG_CONFIG_PATH
 
-export LD_LIBRARY_PATH="${install_dir}/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
-export PKG_CONFIG_PATH=${install_dir}/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
-
 export CFLAGS='-fPIC'
 export CXXFLAGS='-fPIC'
