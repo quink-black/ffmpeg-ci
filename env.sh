@@ -13,3 +13,4 @@ export PKG_CONFIG_PATH=${install_dir}/lib64/pkgconfig:$PKG_CONFIG_PATH
 
 export CFLAGS='-fPIC'
 export CXXFLAGS='-fPIC'
+export MACOSX_DEPLOYMENT_TARGET=11.0
