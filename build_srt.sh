@@ -12,6 +12,7 @@ cmake -G Ninja \
     -DENABLE_STDCXX_SYNC=ON \
     -DCMAKE_INSTALL_PREFIX=${install_dir} \
     -DENABLE_SHARED=OFF \
+    -DENABLE_ENCRYPTION=OFF \
     -B ${build_dir}/srt
 popd
 
