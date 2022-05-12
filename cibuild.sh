@@ -53,12 +53,14 @@ source ./env.sh
 
 ./build_lsmash.sh
 ./build_dav1d.sh
+./build_davs2.sh
 ./build_vmaf.sh
 ./build_x264.sh
 ./build_x265.sh
 ./build_freetype.sh
 ./build_fontconfig.sh
 ./build_srt.sh
+./build_uavs3d.sh
 fi
 
 ./build_ffmpeg.sh --path $ffmpeg_src \
@@ -66,3 +68,5 @@ fi
     --skip_test_case "$skip_test_case" \
     --enable_asan $enable_asan \
     --enable_opt $enable_opt
+
+./test_avs.sh

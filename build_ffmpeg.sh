@@ -63,6 +63,7 @@ extra_libs=""
 
 if [ $(uname) = 'Linux' ]; then
     extra_libs="$extra_libs -pthread"
+    extra_config="${extra_config} --enable-libdavs2"
 fi
 
 if grep -q enable-libav1d ${ffmpeg_src}/configure; then
@@ -81,6 +82,10 @@ fi
 
 if grep -q able-libzimg ${ffmpeg_src}/configure && pkg-config --exists zimg; then
     extra_config="${extra_config} --enable-libzimg"
+fi
+
+if grep -q enable-libuavs3d ${ffmpeg_src}/configure; then
+    extra_config="${extra_config} --enable-libuavs3d"
 fi
 
 if [ "$enable_asan" -eq 1 ]; then
