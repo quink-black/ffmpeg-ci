@@ -69,4 +69,6 @@ fi
     --enable_asan $enable_asan \
     --enable_opt $enable_opt
 
-./test_avs.sh
+if [ -n "$do_test" ]; then
+    ./test_avs.sh
+fi
