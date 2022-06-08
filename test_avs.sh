@@ -21,13 +21,11 @@ decode_test() {
     fi
 }
 
-if [ $(uname) = 'Linux' ]; then
-    for i in avs2stream/ES/*
-    do
-        ref_md5="$(cat "${i}/md5.txt" |tr '[:upper:]' '[:lower:]')"
-        decode_test "${i}/test.avs2" "$ref_md5"
-    done
-fi
+for i in avs2stream/ES/*
+do
+    ref_md5="$(cat "${i}/md5.txt" |tr '[:upper:]' '[:lower:]')"
+    decode_test "${i}/test.avs2" "$ref_md5"
+done
 
 for i in avs3stream/ES/*
 do
