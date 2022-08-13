@@ -128,6 +128,7 @@ $ffmpeg_src/configure \
     --ignore-tests="${skip_test_case}" \
     --disable-stripping \
     --enable-openssl \
+    --enable-libxml2 \
     ${extra_config} 
 
 
