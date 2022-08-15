@@ -2,11 +2,13 @@
 
 set -e
 
+source env.sh
+
 ffmpeg_build=${build_dir}/ffmpeg
 
 # default path of ffmpeg source code
 ffmpeg_src=${DIR}/../ffmpeg
-do_install=0
+do_install=1
 arch="arm"
 while [ $# -gt 0 ]; do
     case $1 in
@@ -19,9 +21,6 @@ while [ $# -gt 0 ]; do
         --path)
             ffmpeg_src=$2
             shift
-            ;;
-        --install)
-            do_install=1
             ;;
         --arch)
             arch=$2
@@ -68,18 +67,20 @@ export CC=$TOOLCHAIN/bin/$TARGET$API-clang
 export CXX=$TOOLCHAIN/bin/$TARGET$API-clang++
 export AS=$CC
 export LD=$CC
+export AR=$TOOLCHAIN/bin/llvm-ar
 export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
-export STRIP=echo
 export NM=$TOOLCHAIN/bin/llvm-nm
 export STRINGS=$TOOLCHAIN/bin/llvm-strings
 
 export CROSS_PREFIX=${TARGET}-
 export HOST=${TARGET}
 
-mkdir -p $build_dir
-
+# x264 strip有些错误，做个假的strip
+export STRIP=echo
 ./build_x264.sh
+export STRIP=$TOOLCHAIN/bin/llvm-strip
 
+mkdir -p $build_dir
 pushd $build_dir
 
 rm -Rf ${ffmpeg_build}
@@ -102,7 +103,8 @@ $ffmpeg_src/configure \
     --nm=$NM \
     --ranlib=$RANLIB \
     --strip=$STRIP \
-    --enable-shared --disable-static \
+    --ar=$AR \
+    --enable-static --disable-shared \
     --enable-pic \
     --extra-libs="-lm" \
     --disable-linux-perf \
