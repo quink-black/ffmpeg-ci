@@ -2,10 +2,6 @@
 
 set -e
 
-DIR="$(cd "$(dirname "$0")" && pwd)"
-
-build_dir=${DIR}/build
-install_dir=${DIR}/install
 ffmpeg_build=${build_dir}/ffmpeg
 
 # default path of ffmpeg source code
@@ -69,14 +65,20 @@ ffmpeg_build="$ffmpeg_build-$ANDROID_ABI"
 
 export AR=$TOOLCHAIN/bin/llvm-ar
 export CC=$TOOLCHAIN/bin/$TARGET$API-clang
-export AS=$CC
 export CXX=$TOOLCHAIN/bin/$TARGET$API-clang++
-export LD=$TOOLCHAIN/bin/ld.lld
+export AS=$CC
+export LD=$CC
 export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
-export STRIP=$TOOLCHAIN/bin/llvm-strip
+export STRIP=echo
 export NM=$TOOLCHAIN/bin/llvm-nm
+export STRINGS=$TOOLCHAIN/bin/llvm-strings
+
+export CROSS_PREFIX=${TARGET}-
+export HOST=${TARGET}
 
 mkdir -p $build_dir
+
+./build_x264.sh
 
 pushd $build_dir
 
@@ -102,9 +104,11 @@ $ffmpeg_src/configure \
     --strip=$STRIP \
     --enable-shared --disable-static \
     --enable-pic \
-    --extra-ldflags=-lm \
+    --extra-libs="-lm" \
     --disable-linux-perf \
     --disable-avdevice \
+    --enable-libx264 \
+    --pkg-config=pkg-config \
 
 
 make -j $(nproc)
