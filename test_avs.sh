@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -x
 
 ffmpeg_bin="build/ffmpeg/ffmpeg -hide_banner"
 test_dir=build/test
@@ -9,14 +10,15 @@ mkdir -p $test_dir
 
 decode_test() {
     ref_md5="$2"
-    out_name="${test_dir}/test.md5"
+    out_name="$(mktemp -p ${test_dir} --suffix .md5)"
     $ffmpeg_bin -vsync 0 -i "$1" -f md5 "${out_name}" -y
     result=$(cat "$out_name")
     result=${result#MD5=}
     if [ "$ref_md5" == "$result" ]; then
         echo "Decoding test: Success: $1"
+        rm $out_name
     else
-        echo "Decoding test: Error: $out_name md5 doesn't match $1, $result vs $ref_md5"
+        echo "Decoding test: Error: $out_name md5 doesn't match $1, result $result vs reference $ref_md5"
         exit 1
     fi
 }
