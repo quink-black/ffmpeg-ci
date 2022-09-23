@@ -2,7 +2,7 @@
 
 set +e
 
-tarball=${DIR}/freetype*.tar.xz
+tarball=${DIR}/freetype*.tar.gz
 
 mkdir -p $build_dir
 pushd $build_dir
