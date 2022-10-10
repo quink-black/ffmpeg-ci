@@ -93,7 +93,7 @@ $ffmpeg_src/configure \
     --enable-gpl \
     --enable-version3 \
     --disable-doc \
-    --target-os=linux \
+    --target-os=android \
     --cross-prefix=${TARGET}- \
     --arch=$ANDROID_ABI \
     --cpu=$CPU \
@@ -108,8 +108,9 @@ $ffmpeg_src/configure \
     --enable-pic \
     --extra-libs="-lm" \
     --disable-linux-perf \
-    --disable-avdevice \
     --enable-libx264 \
+    --enable-mediacodec \
+    --enable-jni \
     --pkg-config=pkg-config \
 
 
