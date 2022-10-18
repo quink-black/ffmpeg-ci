@@ -9,7 +9,7 @@ ffmpeg_build=${build_dir}/ffmpeg
 # default path of ffmpeg source code
 ffmpeg_src=${DIR}/../ffmpeg
 do_install=1
-arch="arm"
+arch="arm64"
 while [ $# -gt 0 ]; do
     case $1 in
         --help)
