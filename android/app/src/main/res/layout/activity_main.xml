@@ -29,18 +29,30 @@
         android:layout_margin="10dp"
         />
 
-    <TextView
-        android:id="@+id/transcode"
+    <LinearLayout
+        android:id="@+id/preset_cmd"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/ffmpeg_cmd"
-        android:textSize="16sp"
-        android:layout_margin="10dp"
-        android:text="Transcode with MediaCodec"
-        android:textColor="@color/black"
-        />
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@+id/ffmpeg_cmd"
+        >
+
+        <Button
+            android:id="@+id/transcode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Transcode"
+            android:layout_margin="10dp"
+            />
+
+        <Button
+            android:id="@+id/camera"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Camera"
+            android:layout_margin="10dp"
+            />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/ffmpeg_run"
@@ -48,11 +60,13 @@
         android:layout_height="wrap_content"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/transcode"
+        app:layout_constraintTop_toBottomOf="@id/preset_cmd"
         android:textSize="16sp"
         android:layout_margin="10dp"
         android:text="Run"
         android:textColor="@color/black"
+        android:background="@android:drawable/btn_default"
+        android:gravity="center"
         />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

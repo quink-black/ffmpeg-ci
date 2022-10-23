@@ -4,7 +4,9 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.Manifest;
 import android.content.ContentResolver;
+import android.content.pm.PackageManager;
 import android.media.MediaCodec;
 import android.net.Uri;
 import android.os.Bundle;
@@ -13,6 +15,7 @@ import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.view.Surface;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -24,9 +27,16 @@ public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
     private TextView runFFmpeg;
     private EditText ffmpegCmd;
-    private TextView transcode;
-    ActivityResultLauncher<String> getContent = registerForActivityResult(
+    private Button transcode;
+    private Button camera;
+
+    private ActivityResultLauncher<String> getContent = registerForActivityResult(
             new ActivityResultContracts.GetContent(), this::onInputSelected);
+
+    private ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                Log.i(TAG, "granted " + isGranted);
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,6 +54,30 @@ public class MainActivity extends AppCompatActivity {
         transcode.setOnClickListener( v -> {
             getContent.launch("video/*");
         });
+
+        camera = binding.camera;
+        camera.setOnClickListener(this::cameraStreaming);
+
+        checkPermission();
+    }
+
+    private void checkPermission() {
+        String[] permissions = {
+            Manifest.permission.CAMERA,
+        };
+
+        for (String perm : permissions) {
+            if (checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED) {
+                continue;
+            }
+            requestPermissionLauncher.launch(perm);
+        }
+    }
+
+    private void cameraStreaming(View view) {
+        String cmd = "ffmpeg -v debug -video_size 1280x720 -framerate 30 -f android_camera -i 0 -c:v h264_mediacodec -g 60 -b:v 500000 -f rtp_mpegts rtp://224.0.0.1:8888";
+        ffmpegCmd.setText(cmd);
+        runFFmpegCmd(view);
     }
 
     private void runFFmpegCmd(View view) {
@@ -69,7 +103,7 @@ public class MainActivity extends AppCompatActivity {
 
         String output = getExternalMediaDirs()[0].getAbsolutePath() + "/" + "video.mp4";;
         String cmd = "ffmpeg -hwaccel mediacodec -i pipe:" + fileDescriptor.getFd() + " -an -c:v h264_mediacodec -f mp4 -y " + output;
-        transcode.setText("Transcode with " + cmd);
+        ffmpegCmd.setText("Transcode with " + cmd);
         Surface surface = MediaCodec.createPersistentInputSurface();
         FFmpeg.getInstance().setCodecSurface(surface);
         FFmpeg.getInstance().runFFmpegCmd(cmd, new FFmpeg.OnFFmpegFinish() {
