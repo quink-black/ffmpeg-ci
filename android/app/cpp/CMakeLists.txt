@@ -10,6 +10,7 @@ add_library(ffmpegplay SHARED
         native-lib.cpp
         cmdutils.c
         ffmpeg.c
+        ffmpeg_hw.c
         ${ffmpeg_src_dir}/fftools/cmdutils.h
         ${ffmpeg_src_dir}/fftools/ffmpeg.h
         ${ffmpeg_src_dir}/fftools/ffmpeg_mux.h
@@ -20,7 +21,6 @@ add_library(ffmpegplay SHARED
         ${ffmpeg_src_dir}/fftools/thread_queue.h
         ${ffmpeg_src_dir}/fftools/ffmpeg_demux.c
         ${ffmpeg_src_dir}/fftools/ffmpeg_filter.c
-        ${ffmpeg_src_dir}/fftools/ffmpeg_hw.c
         ${ffmpeg_src_dir}/fftools/ffmpeg_mux.c
         ${ffmpeg_src_dir}/fftools/ffmpeg_mux_init.c
         ${ffmpeg_src_dir}/fftools/ffmpeg_opt.c

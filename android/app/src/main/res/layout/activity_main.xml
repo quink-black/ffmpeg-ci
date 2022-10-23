@@ -30,7 +30,7 @@
         />
 
     <TextView
-        android:id="@+id/ffmpeg_run"
+        android:id="@+id/transcode"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:layout_constraintStart_toStartOf="parent"
@@ -38,18 +38,21 @@
         app:layout_constraintTop_toBottomOf="@id/ffmpeg_cmd"
         android:textSize="16sp"
         android:layout_margin="10dp"
-        android:padding="10dp"
+        android:text="Transcode with MediaCodec"
+        android:textColor="@color/black"
+        />
+
+    <TextView
+        android:id="@+id/ffmpeg_run"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/transcode"
+        android:textSize="16sp"
+        android:layout_margin="10dp"
         android:text="Run"
         android:textColor="@color/black"
         />
 
-    <SurfaceView
-        android:id="@+id/surface"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/ffmpeg_run"
-        app:layout_constraintBottom_toBottomOf="parent"
-        />
 </androidx.constraintlayout.widget.ConstraintLayout>
