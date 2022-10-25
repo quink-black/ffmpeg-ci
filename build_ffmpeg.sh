@@ -86,6 +86,10 @@ if grep -q enable-libuavs3d ${ffmpeg_src}/configure; then
     extra_config="${extra_config} --enable-libuavs3d"
 fi
 
+if pkg-config --exists libass; then
+    extra_config="${extra_config} --enable-libass"
+fi
+
 if [ "$enable_asan" -eq 1 ]; then
     if cc -v 2>&1 |grep 'clang version' -q; then
         extra_config="--toolchain=clang-asan ${extra_config}"
