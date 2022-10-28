@@ -10,6 +10,7 @@ ffmpeg_build=${build_dir}/ffmpeg
 ffmpeg_src=${DIR}/../ffmpeg
 do_install=1
 arch="arm64"
+enable_opt=0
 while [ $# -gt 0 ]; do
     case $1 in
         --help)
@@ -24,6 +25,11 @@ while [ $# -gt 0 ]; do
             ;;
         --arch)
             arch=$2
+            shift
+            ;;
+        --enable_opt)
+            enable_opt=$2
+            echo "enable_opt $enable_opt"
             shift
             ;;
     esac
@@ -87,6 +93,11 @@ rm -Rf ${ffmpeg_build}
 mkdir -p ${ffmpeg_build}
 pushd ${ffmpeg_build}
 
+extra_config=" "
+if [ "$enable_opt" -eq 0 ]; then
+    extra_config="${extra_config} --disable-optimizations"
+fi
+
 $ffmpeg_src/configure \
     --prefix=$install_dir \
     --enable-nonfree \
@@ -112,6 +123,7 @@ $ffmpeg_src/configure \
     --enable-mediacodec \
     --enable-jni \
     --pkg-config=pkg-config \
+    ${extra_config} \
 
 
 make -j $(nproc)
