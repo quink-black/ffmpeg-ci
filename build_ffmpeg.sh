@@ -99,6 +99,10 @@ if [ "$enable_asan" -eq 1 ]; then
     fi
 fi
 
+if which nvcc; then
+    extra_config="${extra_config} --enable-cuda-nvcc"
+fi
+
 if [ "$enable_opt" -eq 0 ]; then
     extra_config="${extra_config} --disable-optimizations"
 fi
