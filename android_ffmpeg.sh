@@ -60,7 +60,7 @@ elif [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
     TARGET=aarch64-linux-android
     CPU=armv8-a
     # Set this to your minSdkVersion.
-    API=21
+    API=24
 else
     echo "Unknown arch $arch"
     exit 1

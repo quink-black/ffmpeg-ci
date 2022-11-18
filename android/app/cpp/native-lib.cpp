@@ -1,8 +1,11 @@
 #include <android/log.h>
 #include <jni.h>
 #include <cstring>
+#include <mutex>
+#include <queue>
 #include <string>
 #include <vector>
+#include <dlfcn.h>
 
 #include "ffmpeg_global.h"
 extern "C" {
@@ -15,7 +18,12 @@ jmp_buf gFFmpegExitEntry = {};
 int gFFmpegExitOffset = 100;
 jobject gSurfaceObject = nullptr;
 
-extern "C" int ffmpeg_main(int argc, char *argv[]);
+static std::mutex sMutex;
+static std::queue<char> sVirtualKeyQueue;
+
+static JavaVM *gJavaVM;
+
+extern "C" int ffmpeg_main(int argc, char **argv);
 
 extern "C"
 JNIEXPORT jint JNICALL
@@ -30,6 +38,10 @@ Java_com_example_ffmpegplay_FFmpeg_runFFmpeg(JNIEnv *env, jclass clazz, jstring 
         str = tmp;
         env->ReleaseStringUTFChars(cmd, tmp);
     }
+
+    resetFFmpegGlobal();
+
+    av_jni_set_java_vm(gJavaVM, nullptr);
 
     std::vector<char *> cmd_list;
     char *save;
@@ -66,12 +78,22 @@ Java_com_example_ffmpegplay_FFmpeg_setSurface(JNIEnv *env, jclass clazz, jobject
 }
 
 JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-    av_jni_set_java_vm(vm, nullptr);
+    gJavaVM = vm;
     return JNI_VERSION_1_6;
 }
 
-JNIEXPORT void JNI_OnUnload(JavaVM* vm, void* reserved)
-{
-    av_jni_set_java_vm(nullptr, nullptr);
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_ffmpegplay_FFmpeg_sendKey(JNIEnv *env, jclass clazz, jint key) {
+    std::lock_guard<std::mutex> lockGuard(sMutex);
+    sVirtualKeyQueue.push(key);
 }
 
+int readVirtualKey() {
+    std::lock_guard<std::mutex> lockGuard(sMutex);
+    if (sVirtualKeyQueue.empty())
+        return -1;
+    char c = sVirtualKeyQueue.back();
+    sVirtualKeyQueue.pop();
+    return c;
+}

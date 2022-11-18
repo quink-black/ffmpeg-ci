@@ -58,6 +58,11 @@ public class MainActivity extends AppCompatActivity {
         camera = binding.camera;
         camera.setOnClickListener(this::cameraStreaming);
 
+        Button quit = binding.quit;
+        quit.setOnClickListener(v -> {
+            FFmpeg.getInstance().quit();
+        });
+
         checkPermission();
     }
 
@@ -102,8 +107,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         String output = getExternalMediaDirs()[0].getAbsolutePath() + "/" + "video.mp4";;
-        String cmd = "ffmpeg -hwaccel mediacodec -i pipe:" + fileDescriptor.getFd() + " -an -c:v h264_mediacodec -f mp4 -y " + output;
+        String cmd = "ffmpeg -hwaccel mediacodec -i fd:" + fileDescriptor.getFd() + " -an -c:v h264_mediacodec -f mp4 -y " + output;
         ffmpegCmd.setText("Transcode with " + cmd);
+        runFFmpeg.setText("Run FFmpeg cmd: " + cmd + " ...");
         Surface surface = MediaCodec.createPersistentInputSurface();
         FFmpeg.getInstance().setCodecSurface(surface);
         FFmpeg.getInstance().runFFmpegCmd(cmd, new FFmpeg.OnFFmpegFinish() {

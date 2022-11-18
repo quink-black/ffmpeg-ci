@@ -34,12 +34,19 @@ public class FFmpeg {
         setSurface(surface);
     }
 
+    public static FFmpeg getInstance() {
+        return instance;
+    }
+
+    public void quit() {
+        sendKey('q');
+    }
+
     private static native void setSurface(Surface surface);
 
     private static native int runFFmpeg(String cmd);
 
+    private static native void sendKey(int key);
+
     private static FFmpeg instance = new FFmpeg();
-    public static FFmpeg getInstance() {
-        return instance;
-    }
 }

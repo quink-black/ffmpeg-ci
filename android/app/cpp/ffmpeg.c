@@ -107,6 +107,7 @@
 #include "sync_queue.h"
 
 #include "libavutil/avassert.h"
+#include "ffmpeg_global.h"
 
 const char program_name[] = "ffmpeg";
 const int program_birth_year = 2000;
@@ -447,7 +448,9 @@ void term_init(void)
 static int read_key(void)
 {
     unsigned char ch;
-#if HAVE_TERMIOS_H
+#if 1
+    return readVirtualKey();
+#elif HAVE_TERMIOS_H
     int n = 1;
     struct timeval tv;
     fd_set rfds;

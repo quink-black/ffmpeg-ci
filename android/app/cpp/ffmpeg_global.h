@@ -12,4 +12,16 @@ extern jmp_buf gFFmpegExitEntry;
 extern int gFFmpegExitOffset;
 extern jobject gSurfaceObject;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int readVirtualKey();
+
+void resetFFmpegGlobal();
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif //FFMPEG_PLAYGROUND_FFMPEG_GLOBAL_H

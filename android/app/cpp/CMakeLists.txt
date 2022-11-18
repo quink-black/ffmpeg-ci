@@ -7,6 +7,7 @@ set(ffmpeg_src_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/ffmpeg-aarch64/src
 set(ffmpeg_install_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../install)
 
 add_library(ffmpegplay SHARED
+        ffmpeg_misc.c
         native-lib.cpp
         cmdutils.c
         ffmpeg.c
@@ -35,9 +36,7 @@ target_include_directories(ffmpegplay PRIVATE
         ${ffmpeg_src_dir}/fftools
         ${ffmpeg_src_dir})
 
-target_link_libraries( # Specifies the target library.
-        ffmpegplay
-
+target_link_libraries(ffmpegplay
         ${ffmpeg_install_dir}/lib/libavdevice.a
         ${ffmpeg_install_dir}/lib/libavfilter.a
         ${ffmpeg_install_dir}/lib/libavformat.a
