@@ -11,6 +11,7 @@ ffmpeg_src=${DIR}/../ffmpeg
 do_install=1
 arch="arm64"
 enable_opt=0
+enable_x264=0
 while [ $# -gt 0 ]; do
     case $1 in
         --help)
@@ -81,9 +82,11 @@ export STRINGS=$TOOLCHAIN/bin/llvm-strings
 export CROSS_PREFIX=${TARGET}-
 export HOST=${TARGET}
 
-# x264 strip有些错误，做个假的strip
-export STRIP=echo
-./build_x264.sh
+if [ "$enable_x264" -eq 1 ]; then
+    # x264 strip有些错误，做个假的strip
+    export STRIP=echo
+    ./build_x264.sh
+fi
 export STRIP=$TOOLCHAIN/bin/llvm-strip
 
 mkdir -p $build_dir
@@ -96,6 +99,10 @@ pushd ${ffmpeg_build}
 extra_config=" "
 if [ "$enable_opt" -eq 0 ]; then
     extra_config="${extra_config} --disable-optimizations"
+fi
+
+if [ "$enable_x264" -eq 1 ]; then
+    extra_config="${extra_config} --enable-libx264"
 fi
 
 $ffmpeg_src/configure \
@@ -119,7 +126,6 @@ $ffmpeg_src/configure \
     --enable-pic \
     --extra-libs="-lm" \
     --disable-linux-perf \
-    --enable-libx264 \
     --enable-mediacodec \
     --enable-jni \
     --pkg-config=pkg-config \
