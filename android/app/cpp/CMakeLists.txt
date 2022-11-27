@@ -4,7 +4,7 @@ project("ffmpegplay")
 
 set(ffmpeg_build_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/ffmpeg-aarch64/)
 set(ffmpeg_src_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/ffmpeg-aarch64/src)
-set(ffmpeg_install_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../install)
+#set(ffmpeg_install_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../install)
 
 add_library(ffmpegplay SHARED
         ffmpeg_misc.c
@@ -37,15 +37,15 @@ target_include_directories(ffmpegplay PRIVATE
         ${ffmpeg_src_dir})
 
 target_link_libraries(ffmpegplay
-        ${ffmpeg_install_dir}/lib/libavdevice.a
-        ${ffmpeg_install_dir}/lib/libavfilter.a
-        ${ffmpeg_install_dir}/lib/libavformat.a
-        ${ffmpeg_install_dir}/lib/libavcodec.a
-        ${ffmpeg_install_dir}/lib/libpostproc.a
-        ${ffmpeg_install_dir}/lib/libswresample.a
-        ${ffmpeg_install_dir}/lib/libswscale.a
-        ${ffmpeg_install_dir}/lib/libavutil.a
-        ${ffmpeg_install_dir}/lib/libx264.a
+        ${ffmpeg_build_dir}/libavdevice/libavdevice.a
+        ${ffmpeg_build_dir}/libavfilter/libavfilter.a
+        ${ffmpeg_build_dir}/libavformat/libavformat.a
+        ${ffmpeg_build_dir}/libavcodec/libavcodec.a
+        ${ffmpeg_build_dir}/libpostproc/libpostproc.a
+        ${ffmpeg_build_dir}/libswresample/libswresample.a
+        ${ffmpeg_build_dir}/libswscale/libswscale.a
+        ${ffmpeg_build_dir}/libavutil/libavutil.a
+        #${ffmpeg_install_dir}/lib/libx264.a
 
         camera2ndk
         mediandk
