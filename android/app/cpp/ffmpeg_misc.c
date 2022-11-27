@@ -49,7 +49,6 @@ void resetFFmpegGlobal() {
     filter_hw_device = NULL;
     nb_output_dumped = 0;
     main_return_code = 0;
-    input_stream_potentially_available = 0;
     ignore_unknown_streams = 0;
     copy_unknown_streams = 0;
     do_psnr = 0;

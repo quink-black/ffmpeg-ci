@@ -558,11 +558,9 @@ static void ffmpeg_cleanup(int ret)
     for (i = 0; i < nb_output_files; i++)
         of_close(&output_files[i]);
 
-    free_input_threads();
-    for (i = 0; i < nb_input_files; i++) {
-        avformat_close_input(&input_files[i]->ctx);
-        av_freep(&input_files[i]);
-    }
+    for (i = 0; i < nb_input_files; i++)
+        ifile_close(&input_files[i]);
+
     for (i = 0; i < nb_input_streams; i++) {
         InputStream *ist = input_streams[i];
 
@@ -617,7 +615,7 @@ static OutputStream *ost_iter(OutputStream *prev)
 
     for (; of_idx < nb_output_files; of_idx++) {
         OutputFile *of = output_files[of_idx];
-        for (; ost_idx < of->nb_streams; ost_idx++)
+        if (ost_idx < of->nb_streams)
             return of->streams[ost_idx];
 
         ost_idx = 0;
@@ -1211,14 +1209,6 @@ static void do_video_out(OutputFile *of,
         }
     }
 
-    /*
-     * For video, number of frames in == number of packets out.
-     * But there may be reordering, so we can't throw away frames on encoder
-     * flush, we need to limit them here, before they go into encoder.
-     */
-    nb_frames = FFMIN(nb_frames, ost->max_frames - ost->vsync_frame_number);
-    nb0_frames = FFMIN(nb0_frames, nb_frames);
-
     memmove(ost->last_nb0_frames + 1,
             ost->last_nb0_frames,
             sizeof(ost->last_nb0_frames[0]) * (FF_ARRAY_ELEMS(ost->last_nb0_frames) - 1));
@@ -1267,7 +1257,9 @@ static void do_video_out(OutputFile *of,
         in_picture->pict_type = forced_kf_apply(ost, in_picture, i);
 
         ret = submit_encode_frame(of, ost, in_picture);
-        if (ret < 0 && ret != AVERROR_EOF)
+        if (ret == AVERROR_EOF)
+            break;
+        else if (ret < 0)
             exit_program(1);
 
         ost->next_pts++;
@@ -1818,7 +1810,7 @@ static void do_streamcopy(InputStream *ist, OutputStream *ost, const AVPacket *p
         start_time = 0;
         if (copy_ts) {
             start_time += f->start_time != AV_NOPTS_VALUE ? f->start_time : 0;
-            start_time += start_at_zero ? 0 : f->ctx->start_time;
+            start_time += start_at_zero ? 0 : f->start_time_effective;
         }
         if (ist->pts >= f->recording_time + start_time) {
             close_output_stream(ost);
@@ -3197,28 +3189,6 @@ static int transcode_init(void)
                 input_streams[j + ifile->ist_index]->start = av_gettime_relative();
     }
 
-    // Correct starttime based on the enabled streams
-    for (i = 0; i < nb_input_files; i++) {
-        InputFile       *ifile = input_files[i];
-        AVFormatContext    *is = ifile->ctx;
-        int64_t new_start_time = INT64_MAX;
-
-        if (is->start_time == AV_NOPTS_VALUE ||
-            !(is->iformat->flags & AVFMT_TS_DISCONT))
-            continue;
-
-        for (int j = 0; j < is->nb_streams; j++) {
-            AVStream *st = is->streams[j];
-            if(st->discard == AVDISCARD_ALL || st->start_time == AV_NOPTS_VALUE)
-                continue;
-            new_start_time = FFMIN(new_start_time, av_rescale_q(st->start_time, st->time_base, AV_TIME_BASE_Q));
-        }
-        if (new_start_time > is->start_time) {
-            av_log(is, AV_LOG_VERBOSE, "Correcting start time by %"PRId64"\n", new_start_time - is->start_time);
-            ifile->ts_offset = -new_start_time;
-        }
-    }
-
     /* init input streams */
     for (i = 0; i < nb_input_streams; i++)
         if ((ret = init_input_stream(i, error, sizeof(error))) < 0)
@@ -3915,9 +3885,6 @@ static int transcode(void)
 
     timer_start = av_gettime_relative();
 
-    if ((ret = init_input_threads()) < 0)
-        goto fail;
-
     while (!received_sigterm) {
         int64_t cur_time= av_gettime_relative();
 
@@ -3941,7 +3908,6 @@ static int transcode(void)
         /* dump report by using the output first video and audio streams */
         print_report(0, timer_start, cur_time);
     }
-    free_input_threads();
 
     /* at the end of stream, we must flush the decoder buffers */
     for (i = 0; i < nb_input_streams; i++) {
@@ -3994,8 +3960,6 @@ static int transcode(void)
     ret = 0;
 
  fail:
-    free_input_threads();
-
     return ret;
 }
 
