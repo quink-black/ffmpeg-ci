@@ -12,23 +12,23 @@ add_library(ffmpegplay SHARED
         cmdutils.c
         ffmpeg.c
         ffmpeg_hw.c
-        ${ffmpeg_src_dir}/fftools/cmdutils.h
-        ${ffmpeg_src_dir}/fftools/ffmpeg.h
-        ${ffmpeg_src_dir}/fftools/ffmpeg_mux.h
-        ${ffmpeg_src_dir}/fftools/fopen_utf8.h
-        ${ffmpeg_src_dir}/fftools/objpool.h
-        ${ffmpeg_src_dir}/fftools/opt_common.h
-        ${ffmpeg_src_dir}/fftools/sync_queue.h
-        ${ffmpeg_src_dir}/fftools/thread_queue.h
-        ${ffmpeg_src_dir}/fftools/ffmpeg_demux.c
-        ${ffmpeg_src_dir}/fftools/ffmpeg_filter.c
-        ${ffmpeg_src_dir}/fftools/ffmpeg_mux.c
-        ${ffmpeg_src_dir}/fftools/ffmpeg_mux_init.c
-        ${ffmpeg_src_dir}/fftools/ffmpeg_opt.c
-        ${ffmpeg_src_dir}/fftools/objpool.c
-        ${ffmpeg_src_dir}/fftools/opt_common.c
-        ${ffmpeg_src_dir}/fftools/sync_queue.c
-        ${ffmpeg_src_dir}/fftools/thread_queue.c
+        cmdutils.h
+        ffmpeg.h
+        ffmpeg_mux.h
+        fopen_utf8.h
+        objpool.h
+        opt_common.h
+        sync_queue.h
+        thread_queue.h
+        ffmpeg_demux.c
+        ffmpeg_filter.c
+        ffmpeg_mux.c
+        ffmpeg_mux_init.c
+        ffmpeg_opt.c
+        objpool.c
+        opt_common.c
+        sync_queue.c
+        thread_queue.c
         )
 
 target_include_directories(ffmpegplay PRIVATE

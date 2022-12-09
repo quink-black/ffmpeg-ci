@@ -9,13 +9,12 @@
 
 #include "ffmpeg_global.h"
 extern "C" {
+#include "libavutil/log.h"
 #include "libavcodec/jni.h"
 }
 
 constexpr const char *kLogTag = "FFmpeg";
 
-jmp_buf gFFmpegExitEntry = {};
-int gFFmpegExitOffset = 100;
 jobject gSurfaceObject = nullptr;
 
 static std::mutex sMutex;
@@ -24,6 +23,33 @@ static std::queue<char> sVirtualKeyQueue;
 static JavaVM *gJavaVM;
 
 extern "C" int ffmpeg_main(int argc, char **argv);
+
+static void log_callback(void *ctx, int prio, const char *fmt, va_list va)
+{
+    AVClass* avc = ctx ? *(AVClass **) ctx : NULL;
+    const char *tag = "FFmpeg";
+    int android_prio = ANDROID_LOG_INFO;
+
+    if (prio > av_log_get_level())
+        return;
+
+    if (avc && avc->item_name(ctx))
+        tag = avc->item_name(ctx);
+    if (prio >= AV_LOG_TRACE)
+        android_prio = ANDROID_LOG_VERBOSE;
+    else if (prio >= AV_LOG_DEBUG)
+        android_prio = ANDROID_LOG_DEBUG;
+    else if (prio >= AV_LOG_INFO)
+        android_prio = ANDROID_LOG_INFO;
+    else if (prio >= AV_LOG_WARNING)
+        android_prio = ANDROID_LOG_WARN;
+    else if (prio >= AV_LOG_ERROR)
+        android_prio = ANDROID_LOG_ERROR;
+    else if (prio >= AV_LOG_FATAL)
+        android_prio = ANDROID_LOG_FATAL;
+
+    __android_log_vprint(android_prio, tag, fmt, va);
+}
 
 extern "C"
 JNIEXPORT jint JNICALL
@@ -41,6 +67,7 @@ Java_com_example_ffmpegplay_FFmpeg_runFFmpeg(JNIEnv *env, jclass clazz, jstring 
 
     resetFFmpegGlobal();
 
+    av_log_set_callback(log_callback);
     av_jni_set_java_vm(gJavaVM, nullptr);
 
     std::vector<char *> cmd_list;
@@ -57,14 +84,8 @@ Java_com_example_ffmpegplay_FFmpeg_runFFmpeg(JNIEnv *env, jclass clazz, jstring 
     }
 
     cmd_list.push_back(nullptr);
-    int ret = setjmp(gFFmpegExitEntry);
-    if (ret) {
-        ret -= gFFmpegExitOffset;
-        __android_log_print(ANDROID_LOG_WARN, kLogTag, "FFmpeg exit from longjump, %d", ret);
-    } else {
-        ret = ffmpeg_main(cmd_list.size() - 1, cmd_list.data());
-        __android_log_print(ANDROID_LOG_WARN, kLogTag, "FFmpeg exit from return, %d", ret);
-    }
+    int ret = ffmpeg_main(cmd_list.size() - 1, cmd_list.data());
+    __android_log_print(ANDROID_LOG_WARN, kLogTag, "FFmpeg exit from return, %d", ret);
 
     return ret;
 }

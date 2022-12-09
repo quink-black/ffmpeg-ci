@@ -8,8 +8,6 @@
 #include <setjmp.h>
 #include <jni.h>
 
-extern jmp_buf gFFmpegExitEntry;
-extern int gFFmpegExitOffset;
 extern jobject gSurfaceObject;
 
 #ifdef __cplusplus

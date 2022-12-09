@@ -55,8 +55,6 @@
 #include "compat/w32dlfcn.h"
 #endif
 
-#include "ffmpeg_global.h"
-
 AVDictionary *sws_dict;
 AVDictionary *swr_opts;
 AVDictionary *format_opts, *codec_opts;
@@ -103,8 +101,7 @@ void exit_program(int ret)
     if (program_exit)
         program_exit(ret);
 
-    // exit(ret);
-    longjmp(gFFmpegExitEntry, ret + gFFmpegExitOffset);
+    exit(ret);
 }
 
 double parse_number_or_die(const char *context, const char *numstr, int type,
@@ -924,7 +921,7 @@ AVDictionary *filter_codec_opts(AVDictionary *opts, enum AVCodecID codec_id,
         break;
     }
 
-    while (t = av_dict_get(opts, "", t, AV_DICT_IGNORE_SUFFIX)) {
+    while (t = av_dict_iterate(opts, t)) {
         const AVClass *priv_class;
         char *p = strchr(t->key, ':');
 

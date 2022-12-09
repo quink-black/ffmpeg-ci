@@ -4,8 +4,6 @@
 #include "libavcodec/jni.h"
 
 void resetFFmpegGlobal() {
-    input_streams = NULL;
-    nb_input_streams = 0;
     input_files = NULL;
     nb_input_files = 0;
     output_files = NULL;
@@ -39,7 +37,6 @@ void resetFFmpegGlobal() {
     auto_conversion_filters = 1;
     stats_period = 500000;
     qp_hist = 0;
-    stdin_interaction = 1;
     progress_avio = NULL;
     max_error_rate = 2.0 /3;
     filter_nbthreads = NULL;
