@@ -28,9 +28,14 @@ while [ $# -gt 0 ]; do
             arch=$2
             shift
             ;;
-        --enable_opt)
+        --config_opt)
             enable_opt=$2
             echo "enable_opt $enable_opt"
+            shift
+            ;;
+        --config_x264)
+            enable_x264=$2
+            echo "enable_x264 $enable_x264"
             shift
             ;;
     esac
