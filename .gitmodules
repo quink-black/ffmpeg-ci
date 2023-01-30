@@ -37,3 +37,6 @@
 [submodule "avs3stream"]
 	path = avs3stream
 	url = https://github.com/uavs3/avs3stream.git
+[submodule "vvdec"]
+	path = vvdec
+	url = https://github.com/fraunhoferhhi/vvdec.git
