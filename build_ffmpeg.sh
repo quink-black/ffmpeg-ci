@@ -135,12 +135,13 @@ $ffmpeg_src/configure \
     --enable-libfreetype \
     --enable-libfontconfig \
     --enable-libsrt \
+    --enable-libxml2 \
+    --enable-libzimg \
+    --enable-openssl \
     --disable-doc \
     --samples=${fate_samples} \
     --ignore-tests="${skip_test_case}" \
     --disable-stripping \
-    --enable-openssl \
-    --enable-libxml2 \
     ${extra_config} 
 
 
