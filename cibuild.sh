@@ -51,16 +51,18 @@ if true; then
 
 source ./env.sh
 
-./build_lsmash.sh
 ./build_dav1d.sh
 ./build_davs2.sh
-./build_vmaf.sh
-./build_x264.sh
-./build_x265.sh
 ./build_freetype.sh
 ./build_fontconfig.sh
+./build_lsmash.sh
 ./build_srt.sh
 ./build_uavs3d.sh
+./build_vmaf.sh
+./build_vvdec.sh
+./build_x264.sh
+./build_x265.sh
+./build_zimg.sh
 fi
 
 ./build_ffmpeg.sh --path $ffmpeg_src \

@@ -9,6 +9,7 @@ pushd $src
 ./configure \
     --prefix=$install_dir \
     --enable-static \
+    --disable-shared \
     --host=$HOST \
 
 make -j $(nproc)

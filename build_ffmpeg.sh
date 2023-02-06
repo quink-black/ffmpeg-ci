@@ -123,7 +123,7 @@ $ffmpeg_src/configure \
     --prefix=$install_dir \
     --extra-cflags="-I${install_dir}/include" \
     --extra-ldflags="-L${install_dir}/lib ${extra_ldflags}" \
-    --extra-libs="-lstdc++ $extra_libs" \
+    --extra-libs="-lstdc++ $extra_libs -lm" \
     --pkg-config-flags='--static' \
     --enable-libvmaf \
     --enable-libx264 \
