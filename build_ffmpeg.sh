@@ -108,7 +108,7 @@ if which nvcc; then
 fi
 
 if [ "$enable_opt" -eq 0 ]; then
-    extra_config="${extra_config} --disable-optimizations"
+    extra_config="${extra_config} --enable-debug --disable-optimizations"
 fi
 
 mkdir -p $build_dir
@@ -136,7 +136,6 @@ $ffmpeg_src/configure \
     --enable-libfontconfig \
     --enable-libsrt \
     --enable-libxml2 \
-    --enable-libzimg \
     --enable-openssl \
     --disable-doc \
     --samples=${fate_samples} \

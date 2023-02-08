@@ -62,7 +62,6 @@ source ./env.sh
 ./build_vvdec.sh
 ./build_x264.sh
 ./build_x265.sh
-./build_zimg.sh
 fi
 
 ./build_ffmpeg.sh --path $ffmpeg_src \

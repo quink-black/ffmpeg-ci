@@ -40,6 +40,3 @@
 [submodule "vvdec"]
 	path = vvdec
 	url = https://github.com/fraunhoferhhi/vvdec.git
-[submodule "zimg"]
-	path = zimg
-	url = https://github.com/sekrit-twc/zimg.git
