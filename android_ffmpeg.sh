@@ -134,6 +134,7 @@ $ffmpeg_src/configure \
     --enable-mediacodec \
     --enable-jni \
     --pkg-config=pkg-config \
+    --disable-vulkan \
     ${extra_config} \
 
 
