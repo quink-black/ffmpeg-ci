@@ -38,7 +38,7 @@ while [ $# -gt 0 ]; do
             shift
             ;;
         *)
-            echo "Known option $1, exit"
+            echo "Unknown option $1, exit"
             exit 1
             ;;
     esac
