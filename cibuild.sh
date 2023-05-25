@@ -71,5 +71,5 @@ fi
     --enable_opt $enable_opt
 
 if [ -n "$do_test" ]; then
-    #./test_avs.sh
+    : #./test_avs.sh
 fi
