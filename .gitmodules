@@ -30,7 +30,7 @@
 	url = https://github.com/uavs3/uavs3d.git
 [submodule "davs2"]
 	path = davs2
-	url = git@git.woa.com:zhilizhao/davs2.git
+	url = https://github.com/pkuvcl/davs2.git
 [submodule "avs2stream"]
 	path = avs2stream
 	url = https://github.com/pkuvcl/avs2stream.git
