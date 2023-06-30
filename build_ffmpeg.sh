@@ -135,6 +135,7 @@ $ffmpeg_src/configure \
     --enable-nonfree \
     --enable-gpl \
     --enable-version3 \
+    --enable-rpath \
     --enable-libfreetype \
     --enable-libfontconfig \
     --enable-libsrt \
