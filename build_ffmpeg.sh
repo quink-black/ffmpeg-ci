@@ -77,9 +77,9 @@ fi
 #    extra_config="${extra_config} --enable-libshaderc"
 #fi
 
-if grep -q libplacebo ${ffmpeg_src}/configure && pkg-config --exists libplacebo "libplacebo >= 4.192.0"; then
-    extra_config="${extra_config} --enable-libplacebo --enable-vulkan"
-fi
+#if grep -q libplacebo ${ffmpeg_src}/configure && pkg-config --exists libplacebo "libplacebo >= 4.192.0"; then
+#    extra_config="${extra_config} --enable-libplacebo --enable-vulkan"
+#fi
 
 if grep -q able-libzimg ${ffmpeg_src}/configure && pkg-config --exists zimg; then
     extra_config="${extra_config} --enable-libzimg"
