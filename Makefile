@@ -75,7 +75,26 @@ uavs3e_build := ${build_dir}/uavs3e
 		cmake --install ${uavs3e_build}
 	touch $@
 
-third_party := .dav1d .davs2 .fontconfig .uavs3d
+vulkan_header_build := ${build_dir}/vulkan_header
+.vulkan_header: ${DIR}/vulkan_header
+	cd $< && cmake -B ${vulkan_header_build} \
+		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} && \
+		cmake --build ${vulkan_header_build} && \
+		cmake --install ${vulkan_header_build}
+	touch $@
+
+vulkan_loader_build := ${build_dir}/vulkan_loader
+.vulkan_loader: ${DIR}/vulkan_loader .vulkan_header
+	cd $< && cmake -B ${vulkan_loader_build} \
+		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} && \
+		cmake --build ${vulkan_loader_build} && \
+		cmake --install ${vulkan_loader_build}
+	touch $@
+
+
+third_party := .dav1d .davs2 .fontconfig .uavs3d .vulkan_loader
 #third_party += .xavs2 .uavs3e
 
 all: ${third_party}

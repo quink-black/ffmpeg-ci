@@ -141,6 +141,7 @@ $ffmpeg_src/configure \
     --enable-libsrt \
     --enable-libxml2 \
     --enable-openssl \
+    --enable-vulkan \
     --disable-doc \
     --samples=${fate_samples} \
     --ignore-tests="${skip_test_case}" \
