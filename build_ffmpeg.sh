@@ -73,13 +73,13 @@ fi
 #if grep -q able-libglslang ${ffmpeg_src}/configure && [ -d '/usr/local/include/glslang/Include' ]; then
 #    extra_config="${extra_config} --enable-libglslang"
 #fi
-#if grep -q able-libshaderc ${ffmpeg_src}/configure && pkg-config --exists shaderc; then
-#    extra_config="${extra_config} --enable-libshaderc"
-#fi
+if grep -q able-libshaderc ${ffmpeg_src}/configure && pkg-config --exists shaderc; then
+    extra_config="${extra_config} --enable-libshaderc"
+fi
 
-#if grep -q libplacebo ${ffmpeg_src}/configure && pkg-config --exists libplacebo "libplacebo >= 4.192.0"; then
-#    extra_config="${extra_config} --enable-libplacebo --enable-vulkan"
-#fi
+if grep -q libplacebo ${ffmpeg_src}/configure && pkg-config --exists libplacebo "libplacebo >= 4.192.0"; then
+    extra_config="${extra_config} --enable-libplacebo"
+fi
 
 if grep -q able-libzimg ${ffmpeg_src}/configure && pkg-config --exists zimg; then
     extra_config="${extra_config} --enable-libzimg"
@@ -95,6 +95,10 @@ fi
 
 if pkg-config --exists libass; then
     extra_config="${extra_config} --enable-libass"
+fi
+
+if pkg-config --exists openvino; then
+    extra_config="${extra_config} --enable-libopenvino"
 fi
 
 if [ "$enable_asan" -eq 1 ]; then
