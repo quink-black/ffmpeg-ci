@@ -94,7 +94,7 @@ vulkan_loader_build := ${build_dir}/vulkan_loader
 	touch $@
 
 
-third_party := .dav1d .davs2 .fontconfig .uavs3d .vulkan_loader
+third_party := .dav1d .davs2 .fontconfig .uavs3d .vulkan_header .vulkan_loader
 #third_party += .xavs2 .uavs3e
 
 all: ${third_party}
