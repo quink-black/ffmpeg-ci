@@ -70,15 +70,18 @@ if grep -q enable-libav1d ${ffmpeg_src}/configure; then
     fi
 fi
 
-#if grep -q able-libglslang ${ffmpeg_src}/configure && [ -d '/usr/local/include/glslang/Include' ]; then
-#    extra_config="${extra_config} --enable-libglslang"
-#fi
-if grep -q able-libshaderc ${ffmpeg_src}/configure && pkg-config --exists shaderc; then
-    extra_config="${extra_config} --enable-libshaderc"
-fi
+if pkg-config --exists vulkan; then
+    extra_config="${extra_config} --enable-vulkan"
+    #if grep -q able-libglslang ${ffmpeg_src}/configure && [ -d '/usr/local/include/glslang/Include' ]; then
+    #    extra_config="${extra_config} --enable-libglslang"
+    #fi
+    if grep -q able-libshaderc ${ffmpeg_src}/configure && pkg-config --exists shaderc; then
+        extra_config="${extra_config} --enable-libshaderc"
+    fi
 
-if grep -q libplacebo ${ffmpeg_src}/configure && pkg-config --exists libplacebo "libplacebo >= 4.192.0"; then
-    extra_config="${extra_config} --enable-libplacebo"
+    if grep -q libplacebo ${ffmpeg_src}/configure && pkg-config --exists libplacebo "libplacebo >= 4.192.0"; then
+        extra_config="${extra_config} --enable-libplacebo"
+    fi
 fi
 
 if grep -q able-libzimg ${ffmpeg_src}/configure && pkg-config --exists zimg; then
@@ -145,7 +148,6 @@ $ffmpeg_src/configure \
     --enable-libsrt \
     --enable-libxml2 \
     --enable-openssl \
-    --enable-vulkan \
     --disable-doc \
     --samples=${fate_samples} \
     --ignore-tests="${skip_test_case}" \

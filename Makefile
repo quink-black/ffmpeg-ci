@@ -94,13 +94,15 @@ vulkan_loader_build := ${build_dir}/vulkan_loader
 	touch $@
 
 
-third_party := .dav1d .davs2 .fontconfig .uavs3d .vulkan_header .vulkan_loader
+third_party := .dav1d .davs2 .fontconfig .uavs3d
 #third_party += .xavs2 .uavs3e
+
+clean_libs := ${third_party} .vulkan_header .vulkan_loader
 
 all: ${third_party}
 
 clean:
-	rm -f ${third_party}
+	rm -f ${clean_libs}
 
 path ?= "../ffmpeg"
 test ?= ""
