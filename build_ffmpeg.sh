@@ -62,7 +62,6 @@ extra_ldflags=" "
 extra_libs=""
 
 extra_libs="$extra_libs -pthread"
-extra_config="${extra_config} --enable-libdavs2"
 
 if grep -q enable-libav1d ${ffmpeg_src}/configure; then
     if [ -d ${install_dir}/include/av1d ]; then
@@ -98,6 +97,10 @@ fi
 
 if pkg-config --exists libass; then
     extra_config="${extra_config} --enable-libass"
+fi
+
+if pkg-config --exists davs2; then
+    extra_config="${extra_config} --enable-libdavs2"
 fi
 
 if pkg-config --exists openvino; then
