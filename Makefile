@@ -93,8 +93,17 @@ vulkan_loader_build := ${build_dir}/vulkan_loader
 		cmake --install ${vulkan_loader_build}
 	touch $@
 
+x265_src := ${DIR}/x265/source
+x265_build := ${build_dir}/x265
+.x265: ${x265_src}
+	cd $< && cmake -B ${x265_build} \
+		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} && \
+		cmake --build ${x265_build} && \
+		cmake --install ${x265_build}
+	touch $@
 
-third_party := .dav1d .uavs3d
+third_party := .dav1d .uavs3d .x265
 #third_party += .xavs2 .uavs3e
 
 CPU := $(shell uname -p)

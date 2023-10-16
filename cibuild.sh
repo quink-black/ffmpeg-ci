@@ -56,7 +56,6 @@ source ./env.sh
 #./build_vmaf.sh
 #./build_vvdec.sh
 ./build_x264.sh
-./build_x265.sh
 make -j$(nproc)
 fi
 
