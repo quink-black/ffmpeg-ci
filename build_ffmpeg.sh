@@ -63,6 +63,10 @@ extra_libs=""
 
 extra_libs="$extra_libs -pthread"
 
+if which cl.exe; then
+    extra_config="${extra_config} --target-os=win64 --toolchain=msvc"
+fi
+
 if grep -q enable-libav1d ${ffmpeg_src}/configure; then
     if [ -d ${install_dir}/include/av1d ]; then
         extra_config="${extra_config} --enable-libav1d"
@@ -107,6 +111,10 @@ if pkg-config --exists openvino; then
     extra_config="${extra_config} --enable-libopenvino"
 fi
 
+if pkg-config --exists fontconfig; then
+    extra_config="${extra_config} --enable-libfreetype --enable-libfontconfig"
+fi
+
 if [ "$enable_asan" -eq 1 ]; then
     if cc -v 2>&1 |grep 'clang version' -q; then
         extra_config="--toolchain=clang-asan ${extra_config}"
@@ -145,8 +153,6 @@ $ffmpeg_src/configure \
     --enable-gpl \
     --enable-version3 \
     --enable-rpath \
-    --enable-libfreetype \
-    --enable-libfontconfig \
     --enable-libsrt \
     --enable-libxml2 \
     --enable-openssl \
