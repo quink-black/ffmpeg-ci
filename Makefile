@@ -60,7 +60,7 @@ uavs3d_build := ${build_dir}/uavs3d
 	cd $< && cmake -B ${uavs3d_build} \
 		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
 		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} && \
-		cmake --build ${uavs3d_build} && \
+		cmake --build ${uavs3d_build} --target uavs3d && \
 		cmake --install ${uavs3d_build}
 	touch $@
 

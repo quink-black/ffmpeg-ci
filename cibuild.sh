@@ -53,8 +53,7 @@ source ./env.sh
 
 ./build_lsmash.sh
 ./build_srt.sh
-./build_uavs3d.sh
-./build_vmaf.sh
+#./build_vmaf.sh
 #./build_vvdec.sh
 ./build_x264.sh
 ./build_x265.sh
