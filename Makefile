@@ -98,8 +98,11 @@ third_party := .dav1d .uavs3d
 #third_party += .xavs2 .uavs3e
 
 CPU := $(shell uname -p)
+OS := $(shell uname -o)
 ifneq ($(CPU),arm)
+ifneq ($(OS),Msys)
 	third_party += .fontconfig .davs2
+endif
 endif
 
 clean_libs := ${third_party} .vulkan_header .vulkan_loader
