@@ -109,7 +109,8 @@ x265_build := ${build_dir}/x265
 .x265: ${x265_src}
 	cd $< && cmake -B ${x265_build} \
 		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} && \
+		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} \
+		-DENABLE_SHARED=OFF && \
 		cmake --build ${x265_build} && \
 		cmake --install ${x265_build}
 	touch $@
