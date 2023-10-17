@@ -46,3 +46,6 @@
 [submodule "vulkan_header"]
 	path = vulkan_header
 	url = https://github.com/KhronosGroup/Vulkan-Headers.git
+[submodule "libplacebo"]
+	path = libplacebo
+	url = https://github.com/haasn/libplacebo.git

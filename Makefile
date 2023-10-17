@@ -48,6 +48,17 @@ fontconfig_version := fontconfig-2.13.1
 	cd ${build_dir}/${fontconfig_version} && ./configure --prefix=${install_dir} && make install
 	touch $@
 
+libplacebo_src := ${DIR}/libplacebo
+libplacebo_build := ${build_dir}/libplacebo
+.libplacebo: ${libplacebo_src}
+	cd $< && ${meson_bin} setup ${libplacebo_build} \
+	    --buildtype debug \
+	    -Ddefault_library=static \
+	    --prefix=${install_dir} \
+	    --libdir=${install_dir}/lib
+	ninja -C ${libplacebo_build} install
+	touch $@
+
 xavs2_src := ${DIR}/xavs2
 
 .xavs2: ${xavs2_src}
@@ -114,7 +125,7 @@ ifneq ($(OS),Msys)
 endif
 endif
 
-clean_libs := ${third_party} .vulkan_header .vulkan_loader
+clean_libs := ${third_party} .vulkan_header .vulkan_loader .libplacebo
 
 all: ${third_party}
 
