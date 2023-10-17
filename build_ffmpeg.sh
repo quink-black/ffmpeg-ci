@@ -116,7 +116,7 @@ if pkg-config --exists fontconfig; then
 fi
 
 if [ "$enable_asan" -eq 1 ]; then
-    if cc -v 2>&1 |grep 'clang version' -q; then
+    if $(CC) -v 2>&1 |grep 'clang version' -q; then
         extra_config="--toolchain=clang-asan ${extra_config}"
     else
         extra_config="--toolchain=gcc-asan ${extra_config}"
@@ -142,6 +142,8 @@ pushd ${ffmpeg_build}
 
 $ffmpeg_src/configure \
     --prefix=$install_dir \
+    --cc=$(CC) \
+    --cxx=$(CXX) \
     --extra-cflags="-I${install_dir}/include" \
     --extra-ldflags="-L${install_dir}/lib ${extra_ldflags}" \
     --extra-libs="-lstdc++ $extra_libs -lm" \
