@@ -114,7 +114,7 @@ x265_build := ${build_dir}/x265
 		cmake --install ${x265_build}
 	touch $@
 
-third_party := .dav1d .uavs3d .x265
+third_party := .dav1d .uavs3d .x265 .vulkan_header .vulkan_loader .libplacebo
 #third_party += .xavs2 .uavs3e
 
 CPU := $(shell uname -p)
@@ -125,7 +125,7 @@ ifneq ($(OS),Msys)
 endif
 endif
 
-clean_libs := ${third_party} .vulkan_header .vulkan_loader .libplacebo
+clean_libs := ${third_party}
 
 all: ${third_party}
 
