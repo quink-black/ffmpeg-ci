@@ -99,7 +99,8 @@ vulkan_loader_build := ${build_dir}/vulkan_loader
 .vulkan_loader: ${DIR}/vulkan_loader .vulkan_header
 	cd $< && cmake -B ${vulkan_loader_build} \
 		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} && \
+		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} \
+		-DUSE_MASM=OFF && \
 		cmake --build ${vulkan_loader_build} && \
 		cmake --install ${vulkan_loader_build}
 	touch $@
