@@ -136,14 +136,19 @@ mkdir -p $build_dir
 
 pushd $build_dir
 
-rm -Rf ${ffmpeg_build}
+# allow in source build of ffmpeg with msys
+if [ -z "$MSYSTEM" ]; then
+    # cleanup for non-msys
+    rm -Rf ${ffmpeg_build}
+fi
+
 mkdir -p ${ffmpeg_build}
 pushd ${ffmpeg_build}
 
 $ffmpeg_src/configure \
     --prefix=$install_dir \
-    --cc=$(CC) \
-    --cxx=$(CXX) \
+    --cc=${CC} \
+    --cxx=${CXX} \
     --extra-cflags="-I${install_dir}/include" \
     --extra-ldflags="-L${install_dir}/lib ${extra_ldflags}" \
     --extra-libs="-lstdc++ $extra_libs -lm" \
