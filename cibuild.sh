@@ -52,7 +52,7 @@ if true; then
 source ./env.sh
 
 ./build_lsmash.sh
-./build_srt.sh
+#./build_srt.sh
 #./build_vmaf.sh
 #./build_vvdec.sh
 ./build_x264.sh
