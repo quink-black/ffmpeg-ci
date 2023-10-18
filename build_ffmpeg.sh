@@ -116,7 +116,7 @@ if pkg-config --exists fontconfig; then
 fi
 
 if [ "$enable_asan" -eq 1 ]; then
-    if $(CC) -v 2>&1 |grep 'clang version' -q; then
+    if ${CC} -v 2>&1 |grep 'clang version' -q; then
         extra_config="--toolchain=clang-asan ${extra_config}"
     else
         extra_config="--toolchain=gcc-asan ${extra_config}"
