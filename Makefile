@@ -105,6 +105,16 @@ vulkan_loader_build := ${build_dir}/vulkan_loader
 		cmake --install ${vulkan_loader_build}
 	touch $@
 
+x264_src := ${DIR}/x264
+.x264: ${x264_src}
+	cd $< && ./configure \
+    --prefix=${install_dir} \
+    --enable-static \
+    --enable-pic \
+    --cross-prefix=${CROSS_PREFIX} \
+    --host=${HOST} && \
+    make ${MAKEFLAGS} install
+
 x265_src := ${DIR}/x265/source
 x265_build := ${build_dir}/x265
 .x265: ${x265_src}
@@ -116,7 +126,7 @@ x265_build := ${build_dir}/x265
 		cmake --install ${x265_build}
 	touch $@
 
-third_party := .dav1d .uavs3d .x265 .vulkan_header .vulkan_loader .libplacebo
+third_party := .dav1d .uavs3d .x264 .x265 .vulkan_header .vulkan_loader .libplacebo
 #third_party += .xavs2 .uavs3e
 
 CPU := $(shell uname -p)
