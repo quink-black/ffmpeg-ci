@@ -70,6 +70,7 @@ uavs3d_build := ${build_dir}/uavs3d
 .uavs3d: ${uavs3d_src}
 	cd $< && cmake -B ${uavs3d_build} \
 		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+		-DCOMPILE_10BIT=ON \
 		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} && \
 		cmake --build ${uavs3d_build} --target uavs3d && \
 		cmake --install ${uavs3d_build}
