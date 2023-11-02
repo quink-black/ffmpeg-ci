@@ -109,12 +109,13 @@ vulkan_loader_build := ${build_dir}/vulkan_loader
 x264_src := ${DIR}/x264
 .x264: ${x264_src}
 	cd $< && ./configure \
-    --prefix=${install_dir} \
-    --enable-static \
-    --enable-pic \
-    --cross-prefix=${CROSS_PREFIX} \
-    --host=${HOST} && \
-    make ${MAKEFLAGS} install
+	    --prefix=${install_dir} \
+	    --enable-static \
+	    --enable-pic \
+	    --cross-prefix=${CROSS_PREFIX} \
+	    --host=${HOST} && \
+	    make ${MAKEFLAGS} install
+	touch $@
 
 x265_src := ${DIR}/x265/source
 x265_build := ${build_dir}/x265
@@ -128,13 +129,13 @@ x265_build := ${build_dir}/x265
 	touch $@
 
 third_party := .dav1d .uavs3d .x264 .x265 .vulkan_header .vulkan_loader .libplacebo
-#third_party += .xavs2 .uavs3e
+#third_party += .xavs2 .uavs3e .fontconfig
 
 CPU := $(shell uname -p)
 OS := $(shell uname -o)
 ifneq ($(CPU),arm)
 ifneq ($(OS),Msys)
-	third_party += .fontconfig .davs2
+	third_party += .davs2
 endif
 endif
 
