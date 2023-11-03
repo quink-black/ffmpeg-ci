@@ -13,6 +13,9 @@ export CXXFLAGS := -fPIC
 export CMAKE_BUILD_TYPE := RelWithDebInfo
 export CMAKE_INSTALL_PREFIX := ${install_dir}
 
+CPU := $(shell uname -p)
+OS := $(shell uname -o)
+
 MAKEFLAGS := -j $(shell nproc)
 
 CROSS_PREFIX := ""
@@ -101,6 +104,7 @@ vulkan_loader_build := ${build_dir}/vulkan_loader
 	cd $< && cmake -B ${vulkan_loader_build} \
 		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
 		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} \
+		-DENABLE_WERROR=OFF \
 		-DUSE_MASM=OFF && \
 		cmake --build ${vulkan_loader_build} && \
 		cmake --install ${vulkan_loader_build}
@@ -131,8 +135,6 @@ x265_build := ${build_dir}/x265
 third_party := .dav1d .uavs3d .x264 .x265 .vulkan_header .vulkan_loader .libplacebo
 #third_party += .xavs2 .uavs3e .fontconfig
 
-CPU := $(shell uname -p)
-OS := $(shell uname -o)
 ifneq ($(CPU),arm)
 ifneq ($(OS),Msys)
 	third_party += .davs2

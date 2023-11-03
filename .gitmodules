@@ -42,7 +42,7 @@
 	url = https://github.com/fraunhoferhhi/vvdec.git
 [submodule "vulkan_loader"]
 	path = vulkan_loader
-	url = https://github.com/KhronosGroup/Vulkan-Loader.git
+	url = https://github.com/quink-black/Vulkan-Loader.git
 [submodule "vulkan_header"]
 	path = vulkan_header
 	url = https://github.com/KhronosGroup/Vulkan-Headers.git
