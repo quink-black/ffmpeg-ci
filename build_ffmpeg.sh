@@ -85,6 +85,13 @@ if pkg-config --exists vulkan; then
     if grep -q libplacebo ${ffmpeg_src}/configure && pkg-config --exists libplacebo "libplacebo >= 4.192.0"; then
         extra_config="${extra_config} --enable-libplacebo"
     fi
+    if pkg-config --exists libdrm; then
+        extra_config="${extra_config} --enable-libdrm"
+    fi
+fi
+
+if pkg-config --exists libmfx; then
+    extra_config="${extra_config} --enable-libmfx"
 fi
 
 if grep -q able-libzimg ${ffmpeg_src}/configure && pkg-config --exists zimg; then
