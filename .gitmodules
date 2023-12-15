@@ -49,3 +49,6 @@
 [submodule "libplacebo"]
 	path = libplacebo
 	url = https://github.com/haasn/libplacebo.git
+[submodule "cms"]
+	path = cms
+	url = https://github.com/mm2/Little-CMS.git

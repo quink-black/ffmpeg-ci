@@ -51,9 +51,20 @@ fontconfig_version := fontconfig-2.13.1
 	cd ${build_dir}/${fontconfig_version} && ./configure --prefix=${install_dir} && make install
 	touch $@
 
+cms_src := ${DIR}/cms
+cms_build := ${build_dir}/cms
+.cms: ${cms_src}
+	cd $< && ${meson_bin} setup ${cms_build} \
+	    --buildtype debug \
+	    -Ddefault_library=static \
+	    --prefix=${install_dir} \
+	    --libdir=${install_dir}/lib
+	ninja -C ${cms_build} install
+	touch $@
+
 libplacebo_src := ${DIR}/libplacebo
 libplacebo_build := ${build_dir}/libplacebo
-.libplacebo: ${libplacebo_src}
+.libplacebo: ${libplacebo_src} .cms
 	cd $< && ${meson_bin} setup ${libplacebo_build} \
 	    --buildtype debug \
 	    -Ddefault_library=static \
