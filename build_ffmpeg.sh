@@ -169,6 +169,7 @@ $ffmpeg_src/configure \
     --enable-version3 \
     --enable-rpath \
     --enable-libxml2 \
+    --enable-opencl \
     --enable-openssl \
     --disable-doc \
     --samples=${fate_samples} \
