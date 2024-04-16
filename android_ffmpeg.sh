@@ -60,7 +60,7 @@ if [ "$arch" = "arm" ]; then
     ANDROID_ABI="armeabi-v7a"
     TARGET=armv7a-linux-androideabi
     CPU=armv7-a
-    API=17
+    API=21
 elif [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
     ANDROID_ABI="aarch64"
     TARGET=aarch64-linux-android
