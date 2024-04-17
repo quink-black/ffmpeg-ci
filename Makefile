@@ -73,6 +73,17 @@ libplacebo_build := ${build_dir}/libplacebo
 	ninja -C ${libplacebo_build} install
 	touch $@
 
+ncnn_src := ${DIR}/ncnn
+ncnn_build := ${build_dir}/ncnn
+.ncnn: ${ncnn_src}
+	cd $< && cmake -B ${ncnn_build} \
+		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} && \
+		cmake --build ${ncnn_build} && \
+		cmake --install ${ncnn_build}
+	touch $@
+
+
 xavs2_src := ${DIR}/xavs2
 
 .xavs2: ${xavs2_src}
@@ -143,7 +154,7 @@ x265_build := ${build_dir}/x265
 		cmake --install ${x265_build}
 	touch $@
 
-third_party := .dav1d .uavs3d .x264 .x265 .vulkan_header .vulkan_loader .libplacebo
+third_party := .dav1d .ncnn .uavs3d .x264 .x265 .vulkan_header .vulkan_loader .libplacebo
 #third_party += .xavs2 .uavs3e .fontconfig
 
 ifneq ($(CPU),arm)
