@@ -47,6 +47,8 @@ if ! [ -d ${ffmpeg_src} ]; then
     exit 1
 fi
 
+extra_config=" "
+
 if [ $(uname) = 'Linux' ]; then
     TOOLCHAIN=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64
 elif [ $(uname) = 'Darwin' ]; then
@@ -65,8 +67,10 @@ elif [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
     ANDROID_ABI="aarch64"
     TARGET=aarch64-linux-android
     CPU=armv8-a
-    # Set this to your minSdkVersion.
     API=24
+
+    export PKG_CONFIG_PATH=${DIR}/prebuilt_android/lib/pkgconfig
+    extra_config="${extra_config} --extra-cflags=-I${DIR}/vulkan_header/include --enable-vulkan --enable-libshaderc"
 else
     echo "Unknown arch $arch"
     exit 1
@@ -77,8 +81,6 @@ ffmpeg_build="$ffmpeg_build-$ANDROID_ABI"
 export AR=$TOOLCHAIN/bin/llvm-ar
 export CC=$TOOLCHAIN/bin/$TARGET$API-clang
 export CXX=$TOOLCHAIN/bin/$TARGET$API-clang++
-export AS=$CC
-export LD=$CC
 export AR=$TOOLCHAIN/bin/llvm-ar
 export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
 export NM=$TOOLCHAIN/bin/llvm-nm
@@ -101,7 +103,6 @@ rm -Rf ${ffmpeg_build}
 mkdir -p ${ffmpeg_build}
 pushd ${ffmpeg_build}
 
-extra_config=" "
 if [ "$enable_opt" -eq 0 ]; then
     extra_config="${extra_config} --disable-optimizations"
 fi
@@ -122,7 +123,8 @@ $ffmpeg_src/configure \
     --cpu=$CPU \
     --cc=$CC \
     --cxx=$CXX \
-    --as=$AS \
+    --ld=$CXX \
+    --as=$CC \
     --nm=$NM \
     --ranlib=$RANLIB \
     --strip=$STRIP \
@@ -130,11 +132,11 @@ $ffmpeg_src/configure \
     --enable-static --disable-shared \
     --enable-pic \
     --extra-libs="-lm" \
+    --extra-ldflags="-static-libstdc++" \
     --disable-linux-perf \
     --enable-mediacodec \
     --enable-jni \
     --pkg-config=pkg-config \
-    --disable-vulkan \
     ${extra_config} \
 
 
