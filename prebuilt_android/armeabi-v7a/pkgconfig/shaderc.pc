@@ -1,0 +1,11 @@
+prefix=../../prebuilt_android
+libdir=${prefix}/armeabi-v7a
+includedir=${prefix}/include
+
+Name: shaderc
+Description: Tools and libraries for Vulkan shader compilation
+Version: 2023.7.1
+URL: https://github.com/google/shaderc
+
+Libs: -L${libdir} -lshaderc
+Cflags: -I${includedir}

@@ -62,15 +62,14 @@ if [ "$arch" = "arm" ]; then
     ANDROID_ABI="armeabi-v7a"
     TARGET=armv7a-linux-androideabi
     CPU=armv7-a
-    API=21
+    API=24
+    TERMUX_ARCH="arm"
 elif [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
     ANDROID_ABI="aarch64"
     TARGET=aarch64-linux-android
     CPU=armv8-a
     API=24
-
-    export PKG_CONFIG_PATH=${DIR}/prebuilt_android/lib/pkgconfig
-    extra_config="${extra_config} --extra-cflags=-I${DIR}/vulkan_header/include --enable-vulkan --enable-libshaderc"
+    TERMUX_ARCH="${ANDROID_ABI}"
 else
     echo "Unknown arch $arch"
     exit 1
@@ -89,6 +88,29 @@ export STRINGS=$TOOLCHAIN/bin/llvm-strings
 export CROSS_PREFIX=${TARGET}-
 export HOST=${TARGET}
 
+export CFLAGS="-I${DIR}/vulkan_header/include"
+export LDFLAGS="-L${DIR}/prebuilt_android/${ANDROID_ABI} -lshaderc -lvulkan"
+export PKG_CONFIG_PATH="${DIR}/prebuilt_android/${ANDROID_ABI}/pkgconfig:${install_dir}/lib/pkgconfig"
+export PKG_CONFIG=pkg-config
+mkdir -p $build_dir
+
+source ${DIR}/setup_meson.sh
+termux_setup_meson
+
+pushd ${DIR}/libplacebo
+${DIR}/meson/meson.py setup \
+    ${build_dir}/libplacebo \
+    --cross-file ${TERMUX_MESON_CROSSFILE} \
+    -Ddefault_library=static \
+    -Ddemos=false \
+    --prefix=${install_dir} \
+    --libdir=${install_dir}/lib
+
+ninja -C ${build_dir}/libplacebo install
+sed -i 's/Libs.*$/Libs: -L${libdir} -lplacebo -lm -pthread -ldl -lvulkan/' ${install_dir}/lib/pkgconfig/libplacebo.pc
+popd
+extra_config="${extra_config} --enable-vulkan --enable-libshaderc"
+
 if [ "$enable_x264" -eq 1 ]; then
     # x264 strip有些错误，做个假的strip
     export STRIP=echo
@@ -96,7 +118,6 @@ if [ "$enable_x264" -eq 1 ]; then
 fi
 export STRIP=$TOOLCHAIN/bin/llvm-strip
 
-mkdir -p $build_dir
 pushd $build_dir
 
 rm -Rf ${ffmpeg_build}
@@ -136,9 +157,11 @@ $ffmpeg_src/configure \
     --disable-linux-perf \
     --enable-mediacodec \
     --enable-jni \
+    --enable-libplacebo \
     --pkg-config=pkg-config \
+    --extra-cflags="$CFLAGS" \
+    --extra-ldflags="${LDFLAGS}" \
     ${extra_config} \
-
 
 make -j $(nproc)
 
