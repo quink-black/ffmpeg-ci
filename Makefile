@@ -133,8 +133,9 @@ vulkan_loader_build := ${build_dir}/vulkan_loader
 	touch $@
 
 x264_src := ${DIR}/x264
+x264_build := ${build_dir}/x264
 .x264: ${x264_src}
-	cd $< && ./configure \
+	mkdir -p ${x264_build} && cd ${x264_build} && $</configure \
 	    --prefix=${install_dir} \
 	    --enable-static \
 	    --enable-pic \
