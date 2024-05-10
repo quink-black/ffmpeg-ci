@@ -122,6 +122,10 @@ if pkg-config --exists fontconfig; then
     extra_config="${extra_config} --enable-libfreetype --enable-libfontconfig"
 fi
 
+if pkg-config --exists harfbuzz; then
+    extra_config="${extra_config} --enable-libharfbuzz"
+fi
+
 if [ "$enable_asan" -eq 1 ]; then
     if ${CC} -v 2>&1 |grep 'clang version' -q; then
         extra_config="--toolchain=clang-asan ${extra_config}"
