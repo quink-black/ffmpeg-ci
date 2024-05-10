@@ -129,6 +129,7 @@ if [ "$enable_asan" -eq 1 ]; then
         extra_config="--toolchain=gcc-asan ${extra_config}"
         extra_ldflags="${extra_ldflags} -static-libasan"
     fi
+    ffmpeg_build=${ffmpeg_build}_asan
 fi
 
 #if which nvcc; then
@@ -137,6 +138,8 @@ fi
 
 if [ "$enable_opt" -eq 0 ]; then
     extra_config="${extra_config} --enable-debug --disable-optimizations"
+else
+    ffmpeg_build=${ffmpeg_build}_opt
 fi
 
 mkdir -p $build_dir
