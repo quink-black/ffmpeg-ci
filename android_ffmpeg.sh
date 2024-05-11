@@ -76,6 +76,7 @@ else
 fi
 
 ffmpeg_build="$ffmpeg_build-$ANDROID_ABI"
+install_dir="$install_dir-$ANDROID_ABI"
 
 export AR=$TOOLCHAIN/bin/llvm-ar
 export CC=$TOOLCHAIN/bin/$TARGET$API-clang
@@ -99,14 +100,14 @@ termux_setup_meson
 
 pushd ${DIR}/libplacebo
 ${DIR}/meson/meson.py setup \
-    ${build_dir}/libplacebo \
+    ${build_dir}/libplacebo-$ANDROID_ABI \
     --cross-file ${TERMUX_MESON_CROSSFILE} \
     -Ddefault_library=static \
     -Ddemos=false \
     --prefix=${install_dir} \
     --libdir=${install_dir}/lib
 
-ninja -C ${build_dir}/libplacebo install
+ninja -C ${build_dir}/libplacebo-$ANDROID_ABI install
 sed -i 's/Libs.*$/Libs: -L${libdir} -lplacebo -lm -pthread -ldl -lvulkan/' ${install_dir}/lib/pkgconfig/libplacebo.pc
 popd
 extra_config="${extra_config} --enable-vulkan --enable-libshaderc"
