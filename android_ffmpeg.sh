@@ -155,7 +155,7 @@ $ffmpeg_src/configure \
     --enable-pic \
     --extra-libs="-lm" \
     --extra-ldflags="-static-libstdc++" \
-    --disable-linux-perf \
+    --enable-linux-perf \
     --enable-mediacodec \
     --enable-jni \
     --enable-libplacebo \
