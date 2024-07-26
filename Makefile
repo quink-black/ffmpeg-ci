@@ -73,17 +73,6 @@ libplacebo_build := ${build_dir}/libplacebo
 	ninja -C ${libplacebo_build} install
 	touch $@
 
-ncnn_src := ${DIR}/ncnn
-ncnn_build := ${build_dir}/ncnn
-.ncnn: ${ncnn_src}
-	cd $< && cmake -B ${ncnn_build} \
-		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} && \
-		cmake --build ${ncnn_build} && \
-		cmake --install ${ncnn_build}
-	touch $@
-
-
 xavs2_src := ${DIR}/xavs2
 
 .xavs2: ${xavs2_src}
