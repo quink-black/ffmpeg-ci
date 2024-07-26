@@ -114,9 +114,9 @@ if pkg-config --exists davs2; then
     extra_config="${extra_config} --enable-libdavs2"
 fi
 
-if pkg-config --exists openvino; then
-    extra_config="${extra_config} --enable-libopenvino"
-fi
+#if pkg-config --exists openvino; then
+#    extra_config="${extra_config} --enable-libopenvino"
+#fi
 
 if pkg-config --exists fontconfig; then
     extra_config="${extra_config} --enable-libfreetype --enable-libfontconfig"
