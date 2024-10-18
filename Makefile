@@ -131,6 +131,17 @@ vulkan_loader_build := ${build_dir}/vulkan_loader
 		cmake --install ${vulkan_loader_build}
 	touch $@
 
+vvenc_src := ${DIR}/vvenc
+vvenc_build := ${build_dir}/vvenc
+.vvenc: ${vvenc_src}
+	cd $< && cmake -B ${vvenc_build} \
+		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} \
+		-DBUILD_SHARED_LIBS=OFF	&& \
+		cmake --build ${vvenc_build} && \
+		cmake --install ${vvenc_build}
+	touch $@
+
 x264_src := ${DIR}/x264
 x264_build := ${build_dir}/x264
 .x264: ${x264_src}
@@ -154,7 +165,7 @@ x265_build := ${build_dir}/x265
 		cmake --install ${x265_build}
 	touch $@
 
-third_party := .aom .dav1d .uavs3d .x264 .x265 .vulkan_header .vulkan_loader .libplacebo
+third_party := .aom .dav1d .uavs3d .x264 .x265 .vulkan_header .vulkan_loader .libplacebo .vvenc
 #third_party += .xavs2 .uavs3e .fontconfig
 
 ifneq ($(CPU),arm)

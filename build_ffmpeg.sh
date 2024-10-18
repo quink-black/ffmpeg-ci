@@ -169,6 +169,7 @@ $ffmpeg_src/configure \
     --extra-libs="-lstdc++ $extra_libs -lm" \
     --pkg-config-flags='--static' \
     --enable-libaom \
+    --enable-libvvenc \
     --enable-libx264 \
     --enable-libx265 \
     --enable-libdav1d \

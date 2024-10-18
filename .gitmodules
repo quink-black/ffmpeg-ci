@@ -55,3 +55,6 @@
 [submodule "aom"]
 	path = aom
 	url = https://aomedia.googlesource.com/aom
+[submodule "vvenc"]
+	path = vvenc
+	url = https://github.com/fraunhoferhhi/vvenc.git
