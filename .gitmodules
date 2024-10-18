@@ -24,7 +24,7 @@
 	url = https://github.com/Haivision/srt.git
 [submodule "x265"]
 	path = x265
-	url = https://github.com/videolan/x265.git
+	url = https://bitbucket.org/multicoreware/x265_git.git
 [submodule "uavs3d"]
 	path = uavs3d
 	url = https://github.com/uavs3/uavs3d.git
