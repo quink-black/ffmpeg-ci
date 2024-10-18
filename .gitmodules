@@ -52,3 +52,6 @@
 [submodule "cms"]
 	path = cms
 	url = https://github.com/mm2/Little-CMS.git
+[submodule "aom"]
+	path = aom
+	url = https://aomedia.googlesource.com/aom
