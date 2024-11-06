@@ -69,11 +69,12 @@ mkdir -p ${ffmpeg_build}
 pushd ${ffmpeg_build}
 
 if [ "$enable_opt" -eq 0 ]; then
-    extra_config="${extra_config} --disable-optimizations --enable-debug"
+    extra_config="${extra_config} --disable-optimizations"
 fi
 
 $ffmpeg_src/configure \
     --prefix=$install_dir \
+    --enable-debug \
     --enable-nonfree \
     --enable-gpl \
     --enable-version3 \
@@ -95,7 +96,7 @@ $ffmpeg_src/configure \
     --disable-protocol=fd \
     --disable-protocol=pipe \
     --disable-autodetect \
-    --extra-cflags='-D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS' \
+    --extra-cflags='-D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -mllvm -wasm-enable-sjlj' \
     --extra-libs='-lwasi-emulated-signal -lwasi-emulated-process-clocks' \
     ${extra_config} \
 
