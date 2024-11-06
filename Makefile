@@ -137,7 +137,8 @@ vvenc_build := ${build_dir}/vvenc
 	cd $< && cmake -B ${vvenc_build} \
 		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
 		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} \
-		-DBUILD_SHARED_LIBS=OFF	&& \
+		-DBUILD_SHARED_LIBS=OFF \
+		-DVVENC_ENABLE_LINK_TIME_OPT=OFF && \
 		cmake --build ${vvenc_build} && \
 		cmake --install ${vvenc_build}
 	touch $@
