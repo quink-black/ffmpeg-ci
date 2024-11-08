@@ -96,7 +96,7 @@ $ffmpeg_src/configure \
     --disable-protocol=fd \
     --disable-protocol=pipe \
     --disable-autodetect \
-    --extra-cflags='-D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -mllvm -wasm-enable-sjlj' \
+    --extra-cflags='-D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -mllvm -wasm-enable-sjlj -msimd128' \
     --extra-libs='-lwasi-emulated-signal -lwasi-emulated-process-clocks' \
     ${extra_config} \
 
