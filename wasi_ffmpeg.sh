@@ -50,8 +50,8 @@ ffmpeg_build="${ffmpeg_build}-wasi"
 install_dir="${install_dir}-wasi"
 
 export AR=$TOOLCHAIN/bin/llvm-ar
-export CC=$TOOLCHAIN/bin/clang
-export CXX=$TOOLCHAIN/bin/clang++
+export CC=$TOOLCHAIN/bin/wasm32-wasi-threads-clang
+export CXX=$TOOLCHAIN/bin/wasm32-wasi-threads-clang++
 export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
 export NM=$TOOLCHAIN/bin/llvm-nm
 export STRINGS=$TOOLCHAIN/bin/llvm-strings
@@ -91,13 +91,13 @@ $ffmpeg_src/configure \
     --enable-static --disable-shared \
     --disable-stripping \
     --disable-doc \
-    --disable-pthreads \
     --disable-network \
     --disable-protocol=fd \
     --disable-protocol=pipe \
     --disable-autodetect \
-    --extra-cflags='-D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -mllvm -wasm-enable-sjlj -msimd128' \
-    --extra-libs='-lwasi-emulated-signal -lwasi-emulated-process-clocks' \
+    --extra-cflags='-D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -mllvm -wasm-enable-sjlj -msimd128 -pthread' \
+    --extra-ldflags='-Wl,--import-memory,--export-memory,--max-memory=4294967296' \
+    --extra-libs='-lwasi-emulated-signal -lwasi-emulated-process-clocks ' \
     ${extra_config} \
 
 make -j $(nproc)
