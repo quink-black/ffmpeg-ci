@@ -59,7 +59,7 @@ export STRINGS=$TOOLCHAIN/bin/llvm-strings
 export CROSS_PREFIX=${TARGET}-
 export HOST=${TARGET}
 
-export PKG_CONFIG=pkg-config
+export PKG_CONFIG_PATH="${install_dir}/lib/pkgconfig"
 mkdir -p $build_dir
 
 pushd $build_dir
@@ -98,6 +98,7 @@ $ffmpeg_src/configure \
     --extra-cflags='-D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -mllvm -wasm-enable-sjlj -msimd128 -pthread' \
     --extra-ldflags='-Wl,--import-memory,--export-memory,--max-memory=4294967296' \
     --extra-libs='-lwasi-emulated-signal -lwasi-emulated-process-clocks ' \
+    --pkg-config=pkg-config \
     ${extra_config} \
 
 make -j $(nproc)
