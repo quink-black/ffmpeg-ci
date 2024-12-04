@@ -5,6 +5,7 @@ set -e
 source env.sh
 
 ffmpeg_build=${build_dir}/ffmpeg
+fate_samples=${DIR}/ffmpeg-fate-sample
 
 # default path of ffmpeg source code
 ffmpeg_src=${DIR}/../ffmpeg
@@ -99,6 +100,8 @@ $ffmpeg_src/configure \
     --extra-ldflags='-Wl,--import-memory,--export-memory,--max-memory=4294967296 -Wl,-z,stack-size=10485760' \
     --extra-libs='-lwasi-emulated-signal -lwasi-emulated-process-clocks ' \
     --pkg-config=pkg-config \
+    --samples=${fate_samples} \
+    --target-exec='wasmtime --wasi threads --dir=/ '
     ${extra_config} \
 
 make -j $(nproc)
