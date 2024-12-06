@@ -101,7 +101,7 @@ $ffmpeg_src/configure \
     --extra-libs='-lwasi-emulated-signal -lwasi-emulated-process-clocks ' \
     --pkg-config=pkg-config \
     --samples=${fate_samples} \
-    --target-exec='wasmtime --wasi threads --dir=/ '
+    --target-exec='wasmtime --wasi threads --dir=/ ' \
     ${extra_config} \
 
 make -j $(nproc)
