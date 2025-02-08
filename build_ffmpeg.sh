@@ -110,6 +110,10 @@ if pkg-config --exists libass; then
     extra_config="${extra_config} --enable-libass"
 fi
 
+if pkg-config --exists fribidi; then
+    extra_config="${extra_config} --enable-libfribidi"
+fi
+
 if pkg-config --exists davs2; then
     extra_config="${extra_config} --enable-libdavs2"
 fi
