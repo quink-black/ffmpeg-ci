@@ -101,7 +101,7 @@ $ffmpeg_src/configure \
     --extra-libs='' \
     --pkg-config=pkg-config \
     --samples=${fate_samples} \
-    --target-exec='node' \
+    --target-exec="$EMSDK_NODE" \
     ${extra_config} \
 
 make -j $(nproc)
