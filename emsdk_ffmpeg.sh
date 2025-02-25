@@ -97,7 +97,7 @@ $ffmpeg_src/configure \
     --disable-protocol=pipe \
     --disable-autodetect \
     --extra-cflags='-msimd128 -pthread' \
-    --extra-ldflags='-s INITIAL_MEMORY=1GB -s ALLOW_MEMORY_GROWTH=1 -s MAXIMUM_MEMORY=4GB -s MALLOC=emmalloc' \
+    --extra-ldflags='-s INITIAL_MEMORY=256MB -s ALLOW_MEMORY_GROWTH=1 -s MAXIMUM_MEMORY=4GB -s MALLOC=emmalloc -s STACK_OVERFLOW_CHECK=1 -s ASSERTIONS=1 -s STACK_SIZE=10MB -s ASYNCIFY_STACK_SIZE=65536' \
     --extra-libs='' \
     --pkg-config=pkg-config \
     --samples=${fate_samples} \
