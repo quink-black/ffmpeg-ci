@@ -10,7 +10,7 @@ fate_samples=${DIR}/ffmpeg-fate-sample
 # default path of ffmpeg source code
 ffmpeg_src=${DIR}/../ffmpeg
 do_install=1
-enable_opt=0
+enable_opt=1
 while [ $# -gt 0 ]; do
     case $1 in
         --help)
