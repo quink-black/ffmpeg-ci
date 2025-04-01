@@ -22,7 +22,7 @@ while [ $# -gt 0 ]; do
             ffmpeg_src=$2
             shift
             ;;
-        --config_opt)
+        --enable_opt)
             enable_opt=$2
             echo "enable_opt $enable_opt"
             shift
