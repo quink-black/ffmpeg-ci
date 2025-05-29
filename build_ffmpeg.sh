@@ -181,6 +181,7 @@ $ffmpeg_src/configure \
     --enable-gpl \
     --enable-version3 \
     --enable-rpath \
+    --enable-lcms2 \
     --enable-libxml2 \
     --enable-lcms2 \
     --enable-opencl \
