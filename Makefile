@@ -166,7 +166,7 @@ x265_build := ${build_dir}/x265
 		cmake --install ${x265_build}
 	touch $@
 
-third_party := .aom .dav1d .uavs3d .x264 .x265 .vulkan_header .vulkan_loader .libplacebo .vvenc
+third_party := .aom .cms .dav1d .uavs3d .x264 .x265 .vulkan_header .vulkan_loader .libplacebo .vvenc
 #third_party += .xavs2 .uavs3e .fontconfig
 
 ifneq ($(CPU),arm)

@@ -182,6 +182,7 @@ $ffmpeg_src/configure \
     --enable-version3 \
     --enable-rpath \
     --enable-libxml2 \
+    --enable-lcms2 \
     --enable-opencl \
     --enable-openssl \
     --disable-doc \
