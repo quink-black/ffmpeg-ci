@@ -151,6 +151,10 @@ x264_build := ${build_dir}/x264
 	    --enable-static \
 	    --enable-pic \
 	    --cross-prefix=${CROSS_PREFIX} \
+	    --disable-avs \
+	    --disable-lavf \
+	    --disable-ffms \
+	    --disable-gpac \
 	    --host=${HOST} && \
 	    make ${MAKEFLAGS} install
 	touch $@
