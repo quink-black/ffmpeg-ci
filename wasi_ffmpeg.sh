@@ -93,12 +93,11 @@ $ffmpeg_src/configure \
     --disable-stripping \
     --disable-doc \
     --disable-network \
-    --disable-protocol=fd \
-    --disable-protocol=pipe \
     --disable-autodetect \
     --extra-cflags='-D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -mllvm -wasm-enable-sjlj -msimd128 -pthread' \
     --extra-ldflags='-Wl,--import-memory,--export-memory,--max-memory=4294967296 -Wl,-z,stack-size=10485760' \
     --extra-libs='-lwasi-emulated-signal -lwasi-emulated-process-clocks ' \
+    --disable-parser=apv --disable-demuxer=apv \
     --pkg-config=pkg-config \
     --samples=${fate_samples} \
     --target-exec='wasmtime --wasi threads --dir=/ ' \
