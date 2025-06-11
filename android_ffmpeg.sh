@@ -4,6 +4,7 @@ set -e
 
 source env.sh
 
+unset MACOSX_DEPLOYMENT_TARGET
 ffmpeg_build=${build_dir}/ffmpeg
 
 # default path of ffmpeg source code
@@ -12,6 +13,7 @@ do_install=1
 arch="arm64"
 enable_opt=0
 enable_x264=0
+enable_x265=0
 while [ $# -gt 0 ]; do
     case $1 in
         --help)
@@ -36,6 +38,11 @@ while [ $# -gt 0 ]; do
         --enable_x264)
             enable_x264=$2
             echo "enable_x264 $enable_x264"
+            shift
+            ;;
+        --enable_x265)
+            enable_x265=$2
+            echo "enable_x265 $enable_x265"
             shift
             ;;
     esac
@@ -118,6 +125,27 @@ if [ "$enable_x264" -eq 1 ]; then
     ./build_x264.sh
 fi
 export STRIP=$TOOLCHAIN/bin/llvm-strip
+
+if [ "$enable_x265" -eq 1 ]; then
+    x265_src="${DIR}/x265/source"
+
+    pushd "${x265_src}"
+    cmake -G Ninja \
+        --toolchain $ANDROID_NDK/build/cmake/android.toolchain.cmake \
+        -DASM_FLAGS="--target=$TARGET$API" \
+        -DENABLE_CLI=OFF \
+        -DCMAKE_INSTALL_PREFIX=${install_dir} \
+		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DENABLE_SHARED=OFF \
+        -DANDROID_ABI=arm64-v8a \
+        -DANDROID_STL=c++_static \
+        -DANDROID_PLATFORM=android-21 \
+        -B ${build_dir}/x265
+    popd
+
+    ninja -C ${build_dir}/x265 install
+    extra_config="${extra_config} --enable-libx265"
+fi
 
 pushd $build_dir
 
