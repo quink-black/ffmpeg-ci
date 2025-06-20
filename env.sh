@@ -15,6 +15,12 @@ else
     export CC=gcc
     export CXX=g++
 fi
+
+if which ccache; then
+    export CC="ccache $CC"
+    export CXX="ccache $XX"
+fi
+
 export CFLAGS='-fPIC'
 export CXXFLAGS='-fPIC'
 export MACOSX_DEPLOYMENT_TARGET=11.0
