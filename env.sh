@@ -18,7 +18,7 @@ fi
 
 if which ccache; then
     export CC="ccache $CC"
-    export CXX="ccache $XX"
+    export CXX="ccache $CXX"
 fi
 
 export CFLAGS='-fPIC'
