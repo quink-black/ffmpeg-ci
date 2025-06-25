@@ -179,8 +179,8 @@ $ffmpeg_src/configure \
     --cpu=$CPU \
     --cc="$CC" \
     --cxx="$CXX" \
-    --ld=$CXX \
-    --as=$CC \
+    --ld="$CXX" \
+    --as="$CC" \
     --nm=$NM \
     --ranlib=$RANLIB \
     --strip=$STRIP \
