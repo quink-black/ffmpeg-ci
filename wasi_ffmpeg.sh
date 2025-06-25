@@ -61,6 +61,12 @@ export CROSS_PREFIX=${TARGET}-
 export HOST=${TARGET}
 
 export PKG_CONFIG_PATH="${install_dir}/lib/pkgconfig"
+
+if which ccache; then
+    export CC="ccache $CC"
+    export CXX="ccache $CXX"
+fi
+
 mkdir -p $build_dir
 
 pushd $build_dir
@@ -82,10 +88,10 @@ $ffmpeg_src/configure \
     --target-os=none \
     --arch=wasm32 \
     --cross-prefix=${TARGET}- \
-    --cc=$CC \
-    --cxx=$CXX \
-    --ld=$CXX \
-    --as=$CC \
+    --cc="$CC" \
+    --cxx="$CXX" \
+    --ld="$CXX" \
+    --as="$CC" \
     --nm=$NM \
     --ranlib=$RANLIB \
     --ar=$AR \

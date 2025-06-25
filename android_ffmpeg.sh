@@ -100,6 +100,12 @@ export CFLAGS="-I${DIR}/vulkan_header/include"
 export LDFLAGS="-L${DIR}/prebuilt_android/${ANDROID_ABI} -lshaderc -lvulkan"
 export PKG_CONFIG_PATH="${DIR}/prebuilt_android/${ANDROID_ABI}/pkgconfig:${install_dir}/lib/pkgconfig"
 export PKG_CONFIG=pkg-config
+
+if which ccache; then
+    export CC="ccache $CC"
+    export CXX="ccache $CXX"
+fi
+
 mkdir -p $build_dir
 
 source ${DIR}/setup_meson.sh
@@ -171,8 +177,8 @@ $ffmpeg_src/configure \
     --cross-prefix=${TARGET}- \
     --arch=$ANDROID_ABI \
     --cpu=$CPU \
-    --cc=$CC \
-    --cxx=$CXX \
+    --cc="$CC" \
+    --cxx="$CXX" \
     --ld=$CXX \
     --as=$CC \
     --nm=$NM \

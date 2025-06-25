@@ -72,6 +72,11 @@ export NM=$TOOLCHAIN/bin/llvm-nm
 export STRINGS=$TOOLCHAIN/bin/llvm-strings
 export STRIP=$TOOLCHAIN/bin/llvm-strip
 
+if which ccache; then
+    export CC="ccache $CC"
+    export CXX="ccache $CXX"
+fi
+
 mkdir -p $build_dir
 
 pushd $build_dir
@@ -94,8 +99,8 @@ $ffmpeg_src/configure \
     --cross-prefix=${TARGET}- \
     --arch=$arch \
     --cpu=$CPU \
-    --cc=$CC \
-    --cxx=$CXX \
+    --cc="$CC" \
+    --cxx="$CXX" \
     --ld=$CXX \
     --as=$CC \
     --nm=$NM \
