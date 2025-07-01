@@ -112,6 +112,7 @@ $ffmpeg_src/configure \
     --extra-libs="-lm" \
     --extra-ldflags="-static-libstdc++" \
     --enable-linux-perf \
+    --enable-ohcodec \
     ${extra_config} \
 
 make -j $(nproc)
