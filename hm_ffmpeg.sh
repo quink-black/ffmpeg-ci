@@ -71,10 +71,17 @@ export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
 export NM=$TOOLCHAIN/bin/llvm-nm
 export STRINGS=$TOOLCHAIN/bin/llvm-strings
 export STRIP=$TOOLCHAIN/bin/llvm-strip
+export PKG_CONFIG_PATH="${install_dir}/lib/pkgconfig"
+export PKG_CONFIG=pkg-config
 
 if which ccache; then
     export CC="ccache $CC"
     export CXX="ccache $CXX"
+fi
+
+if [ "$enable_x264" -eq 1 ]; then
+    # x264 strip有些错误，做个假的strip
+    STRIP=echo HOST=aarch64-unknown-linux ./build_x264.sh
 fi
 
 mkdir -p $build_dir
@@ -87,6 +94,10 @@ pushd ${ffmpeg_build}
 
 if [ "$enable_opt" -eq 0 ]; then
     extra_config="${extra_config} --disable-optimizations"
+fi
+
+if [ "$enable_x264" -eq 1 ]; then
+    extra_config="${extra_config} --enable-libx264"
 fi
 
 $ffmpeg_src/configure \
@@ -112,6 +123,7 @@ $ffmpeg_src/configure \
     --extra-libs="-lm" \
     --extra-ldflags="-static-libstdc++" \
     --enable-linux-perf \
+    --pkg-config=pkg-config \
     --enable-ohcodec \
     ${extra_config} \
 

@@ -11,6 +11,10 @@ pushd $x264_src
     --enable-pic \
     --cross-prefix=$CROSS_PREFIX \
     --host=$HOST \
+    --disable-avs \
+    --disable-lavf \
+    --disable-ffms \
+    --disable-gpac \
 
 make -j $(nproc)
 make install
