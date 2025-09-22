@@ -171,6 +171,7 @@ $ffmpeg_src/configure \
     --prefix=$install_dir \
     --cc="ccache ${CC}" \
     --cxx="ccache ${CXX}" \
+    --ld="${CXX}" \
     --assert-level=2 \
     --extra-cflags="-I${install_dir}/include" \
     --extra-ldflags="-L${install_dir}/lib ${extra_ldflags}" \
