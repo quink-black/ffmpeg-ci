@@ -73,6 +73,10 @@ if grep -q enable-libav1d ${ffmpeg_src}/configure; then
     fi
 fi
 
+if pkg-config --exists SvtAv1Enc; then
+    extra_config="${extra_config} --enable-libsvtav1"
+fi
+
 if pkg-config --exists vulkan; then
     extra_config="${extra_config} --enable-vulkan"
     #if grep -q able-libglslang ${ffmpeg_src}/configure && [ -d '/usr/local/include/glslang/Include' ]; then
