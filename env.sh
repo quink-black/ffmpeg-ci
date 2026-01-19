@@ -8,13 +8,8 @@ export meson_bin=${DIR}/meson/meson.py
 export LD_LIBRARY_PATH="${install_dir}/lib:${install_dir}/lib64:${LD_LIBRARY_PATH}"
 export PKG_CONFIG_PATH="${install_dir}/lib/pkgconfig:${install_dir}/lib64/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
 
-if which clang++; then
-    export CC=clang
-    export CXX=clang++
-else
-    export CC=gcc
-    export CXX=g++
-fi
+export CC=cc
+export CXX=c++
 
 if which ccache; then
     export CMAKE_C_COMPILER_LAUNCHER="ccache"
