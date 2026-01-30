@@ -25,7 +25,7 @@ BUILD_TYPE="${1:-release}"
 if [ "$BUILD_TYPE" = "debug" ]; then
     BUILD_DIR="$(pwd)/build-debug"
     INSTALL_DIR="$(pwd)/install-debug"
-    DEBUG_FLAGS="--enable-debug=3 --disable-optimizations"
+    DEBUG_FLAGS="--enable-debug --disable-optimizations"
 else
     DEBUG_FLAGS="--enable-debug"
 fi
