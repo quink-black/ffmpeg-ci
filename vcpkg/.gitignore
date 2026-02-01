@@ -1,0 +1,11 @@
+# Backup files
+*.bak
+*.orig
+*.swp
+*~
+
+# Log files
+*.log
+
+# Local build artifacts
+build/
