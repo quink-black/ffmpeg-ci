@@ -27,6 +27,34 @@ if (VCPKG_TARGET_ARCHITECTURE STREQUAL "x86" OR VCPKG_TARGET_ARCHITECTURE STREQU
     vcpkg_add_to_path("${NASM_EXE_PATH}")
 endif()
 
+# Create library aliases for vcpkg libraries that have 'lib' prefix but ffmpeg expects without prefix
+# FFmpeg's configure script converts -lmp3lame to mp3lame.lib on MSVC, but vcpkg uses libmp3lame.lib
+if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
+    set(_LIB_ALIASES
+        "libmp3lame:mp3lame"
+        "libx264:x264"
+        "libx265:x265"
+        "libwebp:webp"
+        "libsharpyuv:sharpyuv"
+        "libwebpdemux:webpdemux"
+        "libwebpmux:webpmux"
+        "libxml2:xml2"
+    )
+    foreach(_alias IN LISTS _LIB_ALIASES)
+        string(REPLACE ":" ";" _parts "${_alias}")
+        list(GET _parts 0 _src)
+        list(GET _parts 1 _dst)
+        if(EXISTS "${CURRENT_INSTALLED_DIR}/lib/${_src}.lib" AND NOT EXISTS "${CURRENT_INSTALLED_DIR}/lib/${_dst}.lib")
+            file(COPY_FILE "${CURRENT_INSTALLED_DIR}/lib/${_src}.lib" "${CURRENT_INSTALLED_DIR}/lib/${_dst}.lib")
+            message(STATUS "Created library alias: ${_dst}.lib -> ${_src}.lib")
+        endif()
+        if(EXISTS "${CURRENT_INSTALLED_DIR}/debug/lib/${_src}.lib" AND NOT EXISTS "${CURRENT_INSTALLED_DIR}/debug/lib/${_dst}.lib")
+            file(COPY_FILE "${CURRENT_INSTALLED_DIR}/debug/lib/${_src}.lib" "${CURRENT_INSTALLED_DIR}/debug/lib/${_dst}.lib")
+            message(STATUS "Created debug library alias: ${_dst}.lib -> ${_src}.lib")
+        endif()
+    endforeach()
+endif()
+
 set(OPTIONS "--enable-pic --disable-doc --enable-runtime-cpudetect --disable-autodetect")
 
 if(VCPKG_TARGET_IS_MINGW)
@@ -397,8 +425,11 @@ if("opencv" IN_LIST FEATURES)
     # Enable libopencv - NOTE: Runtime library flags will be set per-configuration
     # Do NOT hardcode -MD here as Debug builds need -MDd
     set(OPTIONS "${OPTIONS} --enable-libopencv --stdcxx=c++20 --extra-cxxflags=-I\"${CURRENT_INSTALLED_DIR}/include/opencv4\"")
-    # Add opencv libs explicitly since vcpkg opencv doesn't generate .pc file
-    set(OPTIONS "${OPTIONS} --extra-libs=opencv_imgproc.lib --extra-libs=opencv_core.lib")
+    # OpenCV libs will be added per-configuration (Release vs Debug use different lib names)
+    # Release: opencv_core4.lib, opencv_imgproc4.lib
+    # Debug: opencv_core4d.lib, opencv_imgproc4d.lib (with 'd' suffix)
+    set(OPENCV_LIBS_RELEASE "opencv_imgproc4.lib" "opencv_core4.lib")
+    set(OPENCV_LIBS_DEBUG "opencv_imgproc4d.lib" "opencv_core4d.lib")
     set(WITH_OPENCV ON)
     # Add opencv4 include path for OpenCV 4.x
     string(APPEND VCPKG_COMBINED_C_FLAGS_DEBUG " -I \"${CURRENT_INSTALLED_DIR}/include/opencv4\"")
@@ -706,10 +737,14 @@ endif ()
 set(OPTIONS_DEBUG "--disable-optimizations --enable-debug")
 set(OPTIONS_RELEASE "--enable-optimizations")
 
-# Add OpenCV runtime library flags for Release if opencv is enabled
+# Add OpenCV runtime library flags and libs for Release if opencv is enabled
 if(WITH_OPENCV)
     foreach(flag IN LISTS OPENCV_CXXFLAGS_RELEASE)
         set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-cxxflags=${flag}")
+    endforeach()
+    # Add Release OpenCV libs (opencv_core4.lib, opencv_imgproc4.lib)
+    foreach(lib IN LISTS OPENCV_LIBS_RELEASE)
+        set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-libs=${lib}")
     endforeach()
 endif()
 
@@ -751,7 +786,8 @@ message(STATUS "Building Options: ${OPTIONS}")
 if (NOT VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "release")
     if (VCPKG_DETECTED_MSVC)
         set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=-libpath:\"${CURRENT_INSTALLED_DIR}/lib\"")
-        set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=libiconv.lib")
+        # vcpkg uses iconv.lib (not libiconv.lib)
+        set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=iconv.lib")
     else()
         set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=-L\"${CURRENT_INSTALLED_DIR}/lib\"")
     endif()
@@ -796,14 +832,22 @@ endif()
 if (NOT VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "debug")
     if (VCPKG_DETECTED_MSVC)
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-libpath:\"${CURRENT_INSTALLED_DIR}/debug/lib\"")
-        set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=libiconv.lib")
+        # Also add release lib path as fallback for libraries that don't have debug variants (like iconv)
+        set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-libpath:\"${CURRENT_INSTALLED_DIR}/lib\"")
+        # vcpkg uses iconv.lib (not libiconv.lib)
+        set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=iconv.lib")
     else()
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-L\"${CURRENT_INSTALLED_DIR}/debug/lib\"")
+        set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-L\"${CURRENT_INSTALLED_DIR}/lib\"")
     endif()
-    # Add OpenCV runtime library flags for Debug if opencv is enabled
+    # Add OpenCV runtime library flags and libs for Debug if opencv is enabled
     if(WITH_OPENCV)
         foreach(flag IN LISTS OPENCV_CXXFLAGS_DEBUG)
             set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-cxxflags=${flag}")
+        endforeach()
+        # Add Debug OpenCV libs (opencv_core4d.lib, opencv_imgproc4d.lib - with 'd' suffix)
+        foreach(lib IN LISTS OPENCV_LIBS_DEBUG)
+            set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-libs=${lib}")
         endforeach()
     endif()
     message(STATUS "Building Debug Options: ${OPTIONS_DEBUG}")
@@ -829,6 +873,8 @@ if (NOT VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "debug")
     configure_file("${CMAKE_CURRENT_LIST_DIR}/build.sh.in" "${BUILD_DIR}/build.sh" @ONLY)
 
     z_vcpkg_setup_pkgconfig_path(CONFIG DEBUG)
+    # Also add release pkgconfig path as fallback for libraries that don't have debug .pc files (like aom, dav1d, etc.)
+    vcpkg_host_path_list(APPEND ENV{PKG_CONFIG_PATH} "${CURRENT_INSTALLED_DIR}/lib/pkgconfig")
 
     vcpkg_execute_required_process(
         COMMAND "${SHELL}" ./build.sh
@@ -882,14 +928,42 @@ if(VCPKG_TARGET_IS_WINDOWS)
     endif()
 endif()
 
+# Determine the correct search directory for tools
+# When VCPKG_BUILD_TYPE is "debug" (debug-only build), tools are in debug/bin
+# Otherwise (release or both), tools are in bin
+if(DEFINED VCPKG_BUILD_TYPE AND VCPKG_BUILD_TYPE STREQUAL "debug")
+    set(TOOLS_SEARCH_DIR "${CURRENT_PACKAGES_DIR}/debug/bin")
+else()
+    set(TOOLS_SEARCH_DIR "${CURRENT_PACKAGES_DIR}/bin")
+endif()
+
 if("ffmpeg" IN_LIST FEATURES)
-    vcpkg_copy_tools(TOOL_NAMES ffmpeg AUTO_CLEAN)
+    vcpkg_copy_tools(TOOL_NAMES ffmpeg SEARCH_DIR "${TOOLS_SEARCH_DIR}" AUTO_CLEAN)
 endif()
 if("ffprobe" IN_LIST FEATURES)
-    vcpkg_copy_tools(TOOL_NAMES ffprobe AUTO_CLEAN)
+    vcpkg_copy_tools(TOOL_NAMES ffprobe SEARCH_DIR "${TOOLS_SEARCH_DIR}" AUTO_CLEAN)
 endif()
 if("ffplay" IN_LIST FEATURES)
-    vcpkg_copy_tools(TOOL_NAMES ffplay AUTO_CLEAN)
+    vcpkg_copy_tools(TOOL_NAMES ffplay SEARCH_DIR "${TOOLS_SEARCH_DIR}" AUTO_CLEAN)
+endif()
+
+# Also install Debug tools to a separate directory (tools/ffmpeg/debug) if both Release and Debug are built
+# This allows users to have both Release and Debug versions available
+if(NOT DEFINED VCPKG_BUILD_TYPE AND EXISTS "${CURRENT_PACKAGES_DIR}/debug/bin")
+    set(DEBUG_TOOLS_DIR "${CURRENT_PACKAGES_DIR}/tools/${PORT}/debug")
+    file(MAKE_DIRECTORY "${DEBUG_TOOLS_DIR}")
+    if("ffmpeg" IN_LIST FEATURES AND EXISTS "${CURRENT_PACKAGES_DIR}/debug/bin/ffmpeg.exe")
+        file(COPY "${CURRENT_PACKAGES_DIR}/debug/bin/ffmpeg.exe" DESTINATION "${DEBUG_TOOLS_DIR}")
+        message(STATUS "Installed debug ffmpeg.exe to ${DEBUG_TOOLS_DIR}")
+    endif()
+    if("ffprobe" IN_LIST FEATURES AND EXISTS "${CURRENT_PACKAGES_DIR}/debug/bin/ffprobe.exe")
+        file(COPY "${CURRENT_PACKAGES_DIR}/debug/bin/ffprobe.exe" DESTINATION "${DEBUG_TOOLS_DIR}")
+        message(STATUS "Installed debug ffprobe.exe to ${DEBUG_TOOLS_DIR}")
+    endif()
+    if("ffplay" IN_LIST FEATURES AND EXISTS "${CURRENT_PACKAGES_DIR}/debug/bin/ffplay.exe")
+        file(COPY "${CURRENT_PACKAGES_DIR}/debug/bin/ffplay.exe" DESTINATION "${DEBUG_TOOLS_DIR}")
+        message(STATUS "Installed debug ffplay.exe to ${DEBUG_TOOLS_DIR}")
+    endif()
 endif()
 
 file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include" "${CURRENT_PACKAGES_DIR}/debug/share")
