@@ -113,9 +113,13 @@ build_ffmpeg() {
 
     $MAKE_BINARY -j${JOBS} V=1
 
-    echo "=== INSTALLING ==="
+    echo "=== INSTALLING LIBRARIES ==="
 
-    $MAKE_BINARY install install-progs
+    $MAKE_BINARY install
+
+    echo "=== INSTALLING PROGRAMS ==="
+
+    $MAKE_BINARY install-progs
 }
 
 cd "$PATH_TO_BUILD_DIR"

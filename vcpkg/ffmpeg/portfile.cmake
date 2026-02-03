@@ -484,41 +484,54 @@ if(NOT DEFINED VCPKG_BUILD_TYPE)
     endforeach()
     
     # Copy required DLLs for debug tools
-    # These DLLs are needed for features that use dynamic libraries at runtime
-    set(_DEBUG_DLLS
-        # Tesseract and Leptonica
-        "tesseract55d.dll"
-        "tesseract55.dll"
-        "leptonica-1.85.0d.dll"
-        "leptonica-1.85.0.dll"
-        # OpenCV (if needed)
-        "opencv_core4d.dll"
-        "opencv_imgproc4d.dll"
-        # Add more DLLs as needed
+    # These libraries may only have release DLLs, so we copy release versions as fallback
+    # DLL patterns to copy (will try debug first, then release)
+    set(_DLL_PATTERNS
+        "tesseract*.dll"      # tesseract55.dll
+        "leptonica*.dll"      # leptonica-1.87.0.dll
+        "opencv_core*.dll"    # opencv_core4d.dll / opencv_core4.dll
+        "opencv_imgproc*.dll" # opencv_imgproc4d.dll / opencv_imgproc4.dll
+        "aom.dll"             # AV1 codec
+        "libmp3lame*.dll"     # MP3 encoder - libmp3lame.dll or libmp3lame.DLL
+        "mp3lame*.dll"        # Alternative name
+        "opus.dll"            # Opus audio codec
+        "iconv*.dll"          # iconv-2.dll
+        "libx264*.dll"        # x264 video codec
+        "libx265*.dll"        # x265 video codec
+        "libvpx*.dll"         # VP8/VP9 codec
+        "vpx*.dll"            # Alternative VPX name
+        "zlib*.dll"           # zlib compression
     )
-    foreach(_dll IN LISTS _DEBUG_DLLS)
-        if(EXISTS "${CURRENT_INSTALLED_DIR}/debug/bin/${_dll}")
-            file(COPY "${CURRENT_INSTALLED_DIR}/debug/bin/${_dll}" DESTINATION "${DEBUG_TOOLS_DIR}")
-            message(STATUS "Copied ${_dll} to debug tools directory")
-        elseif(EXISTS "${CURRENT_INSTALLED_DIR}/bin/${_dll}")
-            file(COPY "${CURRENT_INSTALLED_DIR}/bin/${_dll}" DESTINATION "${DEBUG_TOOLS_DIR}")
-            message(STATUS "Copied ${_dll} from release bin to debug tools directory")
+    
+    foreach(_pattern IN LISTS _DLL_PATTERNS)
+        # First try debug directory
+        file(GLOB _debug_dlls "${CURRENT_INSTALLED_DIR}/debug/bin/${_pattern}")
+        if(_debug_dlls)
+            foreach(_dll IN LISTS _debug_dlls)
+                get_filename_component(_dll_name "${_dll}" NAME)
+                file(COPY "${_dll}" DESTINATION "${DEBUG_TOOLS_DIR}")
+                message(STATUS "Copied ${_dll_name} (debug) to debug tools directory")
+            endforeach()
+        else()
+            # Fallback to release directory
+            file(GLOB _release_dlls "${CURRENT_INSTALLED_DIR}/bin/${_pattern}")
+            foreach(_dll IN LISTS _release_dlls)
+                get_filename_component(_dll_name "${_dll}" NAME)
+                file(COPY "${_dll}" DESTINATION "${DEBUG_TOOLS_DIR}")
+                message(STATUS "Copied ${_dll_name} (release fallback) to debug tools directory")
+            endforeach()
         endif()
     endforeach()
     
     # Copy Release DLLs to release tools directory as well
     set(RELEASE_TOOLS_DIR "${CURRENT_PACKAGES_DIR}/tools/${PORT}")
-    set(_RELEASE_DLLS
-        "tesseract55.dll"
-        "leptonica-1.85.0.dll"
-        "opencv_core4.dll"
-        "opencv_imgproc4.dll"
-    )
-    foreach(_dll IN LISTS _RELEASE_DLLS)
-        if(EXISTS "${CURRENT_INSTALLED_DIR}/bin/${_dll}")
-            file(COPY "${CURRENT_INSTALLED_DIR}/bin/${_dll}" DESTINATION "${RELEASE_TOOLS_DIR}")
-            message(STATUS "Copied ${_dll} to release tools directory")
-        endif()
+    foreach(_pattern IN LISTS _DLL_PATTERNS)
+        file(GLOB _release_dlls "${CURRENT_INSTALLED_DIR}/bin/${_pattern}")
+        foreach(_dll IN LISTS _release_dlls)
+            get_filename_component(_dll_name "${_dll}" NAME)
+            file(COPY "${_dll}" DESTINATION "${RELEASE_TOOLS_DIR}")
+            message(STATUS "Copied ${_dll_name} to release tools directory")
+        endforeach()
     endforeach()
 endif()
 
