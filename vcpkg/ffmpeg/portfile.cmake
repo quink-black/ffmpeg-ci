@@ -442,7 +442,7 @@ endif()
 
 # Copy Debug tools to separate directory
 # Note: Debug executables may have '_g' suffix (ffmpeg_g.exe) or no suffix depending on build
-if(NOT DEFINED VCPKG_BUILD_TYPE AND EXISTS "${CURRENT_PACKAGES_DIR}/debug/bin")
+if(NOT DEFINED VCPKG_BUILD_TYPE)
     set(DEBUG_TOOLS_DIR "${CURRENT_PACKAGES_DIR}/tools/${PORT}/debug")
     file(MAKE_DIRECTORY "${DEBUG_TOOLS_DIR}")
     
@@ -465,8 +465,59 @@ if(NOT DEFINED VCPKG_BUILD_TYPE AND EXISTS "${CURRENT_PACKAGES_DIR}/debug/bin")
                 endif()
             endforeach()
             if(NOT _found)
-                message(STATUS "Debug ${_tool} not found in ${CURRENT_PACKAGES_DIR}/debug/bin")
+                message(WARNING "Debug ${_tool} not found in ${CURRENT_PACKAGES_DIR}/debug/bin - checking build directory")
+                # Fallback: try to copy from build directory
+                foreach(_suffix "" "_g")
+                    set(_exe "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/${_tool}${_suffix}.exe")
+                    if(EXISTS "${_exe}")
+                        file(COPY "${_exe}" DESTINATION "${DEBUG_TOOLS_DIR}")
+                        message(STATUS "Installed debug ${_tool}${_suffix}.exe from build dir to ${DEBUG_TOOLS_DIR}")
+                        set(_found TRUE)
+                        break()
+                    endif()
+                endforeach()
             endif()
+            if(NOT _found)
+                message(WARNING "Debug ${_tool} not found anywhere")
+            endif()
+        endif()
+    endforeach()
+    
+    # Copy required DLLs for debug tools
+    # These DLLs are needed for features that use dynamic libraries at runtime
+    set(_DEBUG_DLLS
+        # Tesseract and Leptonica
+        "tesseract55d.dll"
+        "tesseract55.dll"
+        "leptonica-1.85.0d.dll"
+        "leptonica-1.85.0.dll"
+        # OpenCV (if needed)
+        "opencv_core4d.dll"
+        "opencv_imgproc4d.dll"
+        # Add more DLLs as needed
+    )
+    foreach(_dll IN LISTS _DEBUG_DLLS)
+        if(EXISTS "${CURRENT_INSTALLED_DIR}/debug/bin/${_dll}")
+            file(COPY "${CURRENT_INSTALLED_DIR}/debug/bin/${_dll}" DESTINATION "${DEBUG_TOOLS_DIR}")
+            message(STATUS "Copied ${_dll} to debug tools directory")
+        elseif(EXISTS "${CURRENT_INSTALLED_DIR}/bin/${_dll}")
+            file(COPY "${CURRENT_INSTALLED_DIR}/bin/${_dll}" DESTINATION "${DEBUG_TOOLS_DIR}")
+            message(STATUS "Copied ${_dll} from release bin to debug tools directory")
+        endif()
+    endforeach()
+    
+    # Copy Release DLLs to release tools directory as well
+    set(RELEASE_TOOLS_DIR "${CURRENT_PACKAGES_DIR}/tools/${PORT}")
+    set(_RELEASE_DLLS
+        "tesseract55.dll"
+        "leptonica-1.85.0.dll"
+        "opencv_core4.dll"
+        "opencv_imgproc4.dll"
+    )
+    foreach(_dll IN LISTS _RELEASE_DLLS)
+        if(EXISTS "${CURRENT_INSTALLED_DIR}/bin/${_dll}")
+            file(COPY "${CURRENT_INSTALLED_DIR}/bin/${_dll}" DESTINATION "${RELEASE_TOOLS_DIR}")
+            message(STATUS "Copied ${_dll} to release tools directory")
         endif()
     endforeach()
 endif()
