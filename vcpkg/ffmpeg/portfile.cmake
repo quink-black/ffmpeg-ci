@@ -487,6 +487,7 @@ if(NOT DEFINED VCPKG_BUILD_TYPE)
     # These libraries may only have release DLLs, so we copy release versions as fallback
     # DLL patterns to copy (will try debug first, then release)
     set(_DLL_PATTERNS
+        "archive.dll"
         "tesseract*.dll"      # tesseract55.dll
         "leptonica*.dll"      # leptonica-1.87.0.dll
         "opencv_core*.dll"    # opencv_core4d.dll / opencv_core4.dll
@@ -495,7 +496,10 @@ if(NOT DEFINED VCPKG_BUILD_TYPE)
         "libmp3lame*.dll"     # MP3 encoder - libmp3lame.dll or libmp3lame.DLL
         "mp3lame*.dll"        # Alternative name
         "opus.dll"            # Opus audio codec
+	"gif.dll"
         "iconv*.dll"          # iconv-2.dll
+	"jpeg62.dll"
+	"libcurl-d.dll"
         "libx264*.dll"        # x264 video codec
         "libx265*.dll"        # x265 video codec
         "libvpx*.dll"         # VP8/VP9 codec
