@@ -115,7 +115,7 @@ build_ffmpeg() {
 
     echo "=== INSTALLING ==="
 
-    $MAKE_BINARY install
+    $MAKE_BINARY install install-progs
 }
 
 cd "$PATH_TO_BUILD_DIR"
