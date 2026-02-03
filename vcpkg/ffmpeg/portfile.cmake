@@ -201,10 +201,6 @@ include("${cmake_vars_file}")
 
 if(VCPKG_DETECTED_MSVC)
     set(OPTIONS "--toolchain=msvc ${OPTIONS}")
-    string(APPEND VCPKG_COMBINED_C_FLAGS_DEBUG " -O2")
-    string(REGEX REPLACE "(^| )-RTC1( |$)" " " VCPKG_COMBINED_C_FLAGS_DEBUG "${VCPKG_COMBINED_C_FLAGS_DEBUG}")
-    string(REGEX REPLACE "(^| )-Od( |$)" " " VCPKG_COMBINED_C_FLAGS_DEBUG "${VCPKG_COMBINED_C_FLAGS_DEBUG}")
-    string(REGEX REPLACE "(^| )-Ob0( |$)" " " VCPKG_COMBINED_C_FLAGS_DEBUG "${VCPKG_COMBINED_C_FLAGS_DEBUG}")
 endif()
 
 string(APPEND VCPKG_COMBINED_C_FLAGS_DEBUG " -I \"${CURRENT_INSTALLED_DIR}/include\"")
@@ -488,6 +484,7 @@ if(NOT DEFINED VCPKG_BUILD_TYPE)
     # DLL patterns to copy (will try debug first, then release)
     set(_DLL_PATTERNS
         "archive.dll"
+        "bz2d.dll"
         "tesseract*.dll"      # tesseract55.dll
         "leptonica*.dll"      # leptonica-1.87.0.dll
         "opencv_core*.dll"    # opencv_core4d.dll / opencv_core4.dll
@@ -496,13 +493,16 @@ if(NOT DEFINED VCPKG_BUILD_TYPE)
         "libmp3lame*.dll"     # MP3 encoder - libmp3lame.dll or libmp3lame.DLL
         "mp3lame*.dll"        # Alternative name
         "opus.dll"            # Opus audio codec
-	"gif.dll"
+        "gif.dll"
         "iconv*.dll"          # iconv-2.dll
-	"jpeg62.dll"
-	"libcurl-d.dll"
+        "jpeg62.dll"
+        "libcrypto-3-x64.dll"
+        "libcurl-d.dll"
+        "liblzma.dll"
         "libx264*.dll"        # x264 video codec
         "libx265*.dll"        # x265 video codec
         "libvpx*.dll"         # VP8/VP9 codec
+        "lz4d.dll"
         "vpx*.dll"            # Alternative VPX name
         "zlib*.dll"           # zlib compression
     )
