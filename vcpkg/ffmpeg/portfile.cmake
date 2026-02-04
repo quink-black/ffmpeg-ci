@@ -81,6 +81,11 @@ endif()
 set(OPTIONS "--enable-pic --disable-doc --enable-runtime-cpudetect --disable-autodetect")
 set(OPTIONS "${OPTIONS} --enable-static --disable-shared")
 
+# Fix C++ STL ABI compatibility issue:
+# vcpkg debug builds use _ITERATOR_DEBUG_LEVEL=2 (MSVC default for /MDd)
+# We need FFmpeg's C++ code to use the same setting to avoid std::vector incompatibility
+# This is done by NOT overriding _ITERATOR_DEBUG_LEVEL in CXXFLAGS
+
 # Platform-specific options
 if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
     set(OPTIONS "${OPTIONS} --target-os=win32 --enable-w32threads --enable-d3d11va --enable-d3d12va --enable-dxva2 --enable-mediafoundation")
@@ -179,7 +184,7 @@ endif()
 # We create library aliases in SECTION 3 to handle this.
 if("opencv" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libopencv")
-    set(OPTIONS "${OPTIONS} --extra-cxxflags=-I\"${CURRENT_INSTALLED_DIR}/include/opencv4\"")
+    # Note: extra-cxxflags will be set in SECTION 6 to include both include path and CRT flags
     string(APPEND VCPKG_COMBINED_C_FLAGS_DEBUG " -I \"${CURRENT_INSTALLED_DIR}/include/opencv4\"")
     string(APPEND VCPKG_COMBINED_C_FLAGS_RELEASE " -I \"${CURRENT_INSTALLED_DIR}/include/opencv4\"")
 else()
@@ -205,6 +210,24 @@ endif()
 
 string(APPEND VCPKG_COMBINED_C_FLAGS_DEBUG " -I \"${CURRENT_INSTALLED_DIR}/include\"")
 string(APPEND VCPKG_COMBINED_C_FLAGS_RELEASE " -I \"${CURRENT_INSTALLED_DIR}/include\"")
+
+# Set C++ extra flags to ensure ABI compatibility with vcpkg-built libraries
+# FFmpeg's configure sets CXXFLAGS separately from CFLAGS, so we need to pass CRT flags explicitly
+# For debug: /MDd ensures _ITERATOR_DEBUG_LEVEL=2 (MSVC default) - compatible with vcpkg debug libs
+# For release: /MD ensures _ITERATOR_DEBUG_LEVEL=0 (MSVC default) - compatible with vcpkg release libs
+set(_OPENCV_INCLUDE "")
+if("opencv" IN_LIST FEATURES)
+    set(_OPENCV_INCLUDE "-I\"${CURRENT_INSTALLED_DIR}/include/opencv4\" ")
+endif()
+if(VCPKG_DETECTED_MSVC)
+    # Debug C++ flags: include /MDd for proper STL debug mode
+    set(EXTRA_CXXFLAGS_DEBUG "${_OPENCV_INCLUDE}/MDd")
+    # Release C++ flags: include /MD for release mode
+    set(EXTRA_CXXFLAGS_RELEASE "${_OPENCV_INCLUDE}/MD")
+else()
+    set(EXTRA_CXXFLAGS_DEBUG "${_OPENCV_INCLUDE}")
+    set(EXTRA_CXXFLAGS_RELEASE "${_OPENCV_INCLUDE}")
+endif()
 
 # Setup compiler paths
 set(prog_env "")
@@ -299,6 +322,7 @@ if(NOT VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "release")
     if(VCPKG_DETECTED_MSVC)
         set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=-libpath:\"${CURRENT_INSTALLED_DIR}/lib\"")
         set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=iconv.lib")
+        set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-cxxflags=${EXTRA_CXXFLAGS_RELEASE}")
     else()
         set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=-L\"${CURRENT_INSTALLED_DIR}/lib\"")
     endif()
@@ -342,6 +366,7 @@ if(NOT VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "debug")
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-libpath:\"${CURRENT_INSTALLED_DIR}/debug/lib\"")
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-libpath:\"${CURRENT_INSTALLED_DIR}/lib\"")
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=iconv.lib")
+        set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-cxxflags=${EXTRA_CXXFLAGS_DEBUG}")
     else()
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-L\"${CURRENT_INSTALLED_DIR}/debug/lib\"")
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-L\"${CURRENT_INSTALLED_DIR}/lib\"")
@@ -385,7 +410,7 @@ endif()
 # Generate .lib files from .def on Windows
 if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
     file(GLOB DEF_FILES "${CURRENT_PACKAGES_DIR}/lib/*.def" "${CURRENT_PACKAGES_DIR}/debug/lib/*.def")
-    
+
     if(VCPKG_TARGET_ARCHITECTURE STREQUAL "x64")
         set(LIB_MACHINE_ARG /machine:x64)
     elseif(VCPKG_TARGET_ARCHITECTURE STREQUAL "x86")
@@ -441,7 +466,7 @@ endif()
 if(NOT DEFINED VCPKG_BUILD_TYPE)
     set(DEBUG_TOOLS_DIR "${CURRENT_PACKAGES_DIR}/tools/${PORT}/debug")
     file(MAKE_DIRECTORY "${DEBUG_TOOLS_DIR}")
-    
+
     # Try both regular and _g suffix versions
     foreach(_tool ffmpeg ffprobe ffplay)
         if("${_tool}" IN_LIST FEATURES)
@@ -478,66 +503,160 @@ if(NOT DEFINED VCPKG_BUILD_TYPE)
             endif()
         endif()
     endforeach()
-    
-    # Copy required DLLs for debug tools
-    # These libraries may only have release DLLs, so we copy release versions as fallback
-    # DLL patterns to copy (will try debug first, then release)
-    set(_DLL_PATTERNS
-        "archive.dll"
-        "bz2d.dll"
-        "tesseract*.dll"      # tesseract55.dll
-        "leptonica*.dll"      # leptonica-1.87.0.dll
-        "opencv_core*.dll"    # opencv_core4d.dll / opencv_core4.dll
-        "opencv_imgproc*.dll" # opencv_imgproc4d.dll / opencv_imgproc4.dll
-        "aom.dll"             # AV1 codec
-        "libmp3lame*.dll"     # MP3 encoder - libmp3lame.dll or libmp3lame.DLL
-        "mp3lame*.dll"        # Alternative name
-        "opus.dll"            # Opus audio codec
-        "gif.dll"
-        "iconv*.dll"          # iconv-2.dll
-        "jpeg62.dll"
-        "libcrypto-3-x64.dll"
-        "libcurl-d.dll"
-        "liblzma.dll"
-        "libx264*.dll"        # x264 video codec
-        "libx265*.dll"        # x265 video codec
-        "libvpx*.dll"         # VP8/VP9 codec
-        "lz4d.dll"
-        "vpx*.dll"            # Alternative VPX name
-        "zlib*.dll"           # zlib compression
-    )
-    
-    foreach(_pattern IN LISTS _DLL_PATTERNS)
-        # First try debug directory
-        file(GLOB _debug_dlls "${CURRENT_INSTALLED_DIR}/debug/bin/${_pattern}")
-        if(_debug_dlls)
-            foreach(_dll IN LISTS _debug_dlls)
-                get_filename_component(_dll_name "${_dll}" NAME)
-                file(COPY "${_dll}" DESTINATION "${DEBUG_TOOLS_DIR}")
-                message(STATUS "Copied ${_dll_name} (debug) to debug tools directory")
+
+    # ========================================================================
+    # Recursive DLL dependency resolution using dumpbin
+    # This function finds all DLL dependencies for an executable
+    # ========================================================================
+    function(copy_dll_dependencies EXE_PATH DEST_DIR SEARCH_DIRS IS_DEBUG)
+        if(NOT EXISTS "${EXE_PATH}")
+            message(WARNING "Executable not found: ${EXE_PATH}")
+            return()
+        endif()
+
+        # Use dumpbin to get DLL dependencies
+        execute_process(
+            COMMAND dumpbin /DEPENDENTS "${EXE_PATH}"
+            OUTPUT_VARIABLE DUMPBIN_OUTPUT
+            ERROR_QUIET
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+
+        # Parse dumpbin output to extract DLL names
+        string(REPLACE "\n" ";" DUMPBIN_LINES "${DUMPBIN_OUTPUT}")
+        set(_NEEDED_DLLS "")
+        foreach(_line IN LISTS DUMPBIN_LINES)
+            string(STRIP "${_line}" _line)
+            # DLL names appear as lines ending with .dll (case insensitive)
+            if(_line MATCHES "^[A-Za-z0-9_\\-\\.]+\\.[Dd][Ll][Ll]$")
+                list(APPEND _NEEDED_DLLS "${_line}")
+            endif()
+        endforeach()
+
+        # System DLLs to skip (Windows system libraries)
+        set(_SYSTEM_DLLS
+            "KERNEL32.dll" "kernel32.dll"
+            "USER32.dll" "user32.dll"
+            "GDI32.dll" "gdi32.dll"
+            "ADVAPI32.dll" "advapi32.dll"
+            "SHELL32.dll" "shell32.dll"
+            "ole32.dll" "OLE32.dll"
+            "OLEAUT32.dll" "oleaut32.dll"
+            "COMCTL32.dll" "comctl32.dll"
+            "COMDLG32.dll" "comdlg32.dll"
+            "SHLWAPI.dll" "shlwapi.dll"
+            "WS2_32.dll" "ws2_32.dll"
+            "WINMM.dll" "winmm.dll"
+            "WINSPOOL.DRV" "winspool.drv"
+            "MSVCRT.dll" "msvcrt.dll"
+            "MSVCP140.dll" "msvcp140.dll"
+            "VCRUNTIME140.dll" "vcruntime140.dll"
+            "VCRUNTIME140_1.dll" "vcruntime140_1.dll"
+            "ucrtbase.dll" "UCRTBASE.dll"
+            "api-ms-win-*"
+            "ntdll.dll" "NTDLL.dll"
+            "bcrypt.dll" "BCRYPT.dll"
+            "crypt32.dll" "CRYPT32.dll"
+            "secur32.dll" "SECUR32.dll"
+            "mfplat.dll" "MFPLAT.dll"
+            "mfuuid.dll"
+            "d3d11.dll" "D3D11.dll"
+            "dxgi.dll" "DXGI.dll"
+            "d3d12.dll"
+            "IMM32.dll" "imm32.dll"
+            "VERSION.dll" "version.dll"
+            "SETUPAPI.dll" "setupapi.dll"
+        )
+
+        foreach(_dll_name IN LISTS _NEEDED_DLLS)
+            # Skip system DLLs
+            set(_is_system FALSE)
+            foreach(_sys_dll IN LISTS _SYSTEM_DLLS)
+                if(_dll_name MATCHES "${_sys_dll}" OR _dll_name STREQUAL "${_sys_dll}")
+                    set(_is_system TRUE)
+                    break()
+                endif()
             endforeach()
-        else()
-            # Fallback to release directory
-            file(GLOB _release_dlls "${CURRENT_INSTALLED_DIR}/bin/${_pattern}")
-            foreach(_dll IN LISTS _release_dlls)
-                get_filename_component(_dll_name "${_dll}" NAME)
-                file(COPY "${_dll}" DESTINATION "${DEBUG_TOOLS_DIR}")
-                message(STATUS "Copied ${_dll_name} (release fallback) to debug tools directory")
+
+            if(_is_system)
+                continue()
+            endif()
+
+            # Skip if already copied
+            if(EXISTS "${DEST_DIR}/${_dll_name}")
+                continue()
+            endif()
+
+            # Search for the DLL in provided directories
+            set(_dll_found FALSE)
+            foreach(_search_dir IN LISTS SEARCH_DIRS)
+                # Case-insensitive search on Windows
+                file(GLOB _found_dlls "${_search_dir}/${_dll_name}" "${_search_dir}/${_dll_name}")
+                if(NOT _found_dlls)
+                    # Try lowercase
+                    string(TOLOWER "${_dll_name}" _dll_name_lower)
+                    file(GLOB _found_dlls "${_search_dir}/${_dll_name_lower}")
+                endif()
+                if(NOT _found_dlls)
+                    # Try uppercase
+                    string(TOUPPER "${_dll_name}" _dll_name_upper)
+                    file(GLOB _found_dlls "${_search_dir}/${_dll_name_upper}")
+                endif()
+
+                if(_found_dlls)
+                    list(GET _found_dlls 0 _dll_path)
+                    file(COPY "${_dll_path}" DESTINATION "${DEST_DIR}")
+                    message(STATUS "Copied ${_dll_name} to ${DEST_DIR}")
+                    set(_dll_found TRUE)
+
+                    # Recursively copy dependencies of this DLL
+                    copy_dll_dependencies("${_dll_path}" "${DEST_DIR}" "${SEARCH_DIRS}" ${IS_DEBUG})
+                    break()
+                endif()
+            endforeach()
+
+            if(NOT _dll_found)
+                message(STATUS "DLL not found in vcpkg (may be system DLL): ${_dll_name}")
+            endif()
+        endforeach()
+    endfunction()
+
+    # Define search directories for debug (prefer debug, fallback to release)
+    set(_DEBUG_SEARCH_DIRS
+        "${CURRENT_INSTALLED_DIR}/debug/bin"
+        "${CURRENT_INSTALLED_DIR}/bin"
+    )
+
+    # Copy DLLs for debug tools
+    foreach(_tool ffmpeg ffprobe ffplay)
+        if("${_tool}" IN_LIST FEATURES)
+            foreach(_suffix "" "_g")
+                set(_exe "${DEBUG_TOOLS_DIR}/${_tool}${_suffix}.exe")
+                if(EXISTS "${_exe}")
+                    message(STATUS "Resolving DLL dependencies for debug ${_tool}${_suffix}.exe")
+                    copy_dll_dependencies("${_exe}" "${DEBUG_TOOLS_DIR}" "${_DEBUG_SEARCH_DIRS}" TRUE)
+                    break()
+                endif()
             endforeach()
         endif()
     endforeach()
-    
-    # Copy Release DLLs to release tools directory as well
-    set(RELEASE_TOOLS_DIR "${CURRENT_PACKAGES_DIR}/tools/${PORT}")
-    foreach(_pattern IN LISTS _DLL_PATTERNS)
-        file(GLOB _release_dlls "${CURRENT_INSTALLED_DIR}/bin/${_pattern}")
-        foreach(_dll IN LISTS _release_dlls)
-            get_filename_component(_dll_name "${_dll}" NAME)
-            file(COPY "${_dll}" DESTINATION "${RELEASE_TOOLS_DIR}")
-            message(STATUS "Copied ${_dll_name} to release tools directory")
-        endforeach()
-    endforeach()
 endif()
+
+# Copy DLLs for release tools
+set(RELEASE_TOOLS_DIR "${CURRENT_PACKAGES_DIR}/tools/${PORT}")
+set(_RELEASE_SEARCH_DIRS
+    "${CURRENT_INSTALLED_DIR}/bin"
+)
+
+foreach(_tool ffmpeg ffprobe ffplay)
+    if("${_tool}" IN_LIST FEATURES)
+        set(_exe "${RELEASE_TOOLS_DIR}/${_tool}.exe")
+        if(EXISTS "${_exe}")
+            message(STATUS "Resolving DLL dependencies for release ${_tool}.exe")
+            copy_dll_dependencies("${_exe}" "${RELEASE_TOOLS_DIR}" "${_RELEASE_SEARCH_DIRS}" FALSE)
+        endif()
+    endif()
+endforeach()
 
 # ============================================================================
 # SECTION 11: Cleanup and Install
