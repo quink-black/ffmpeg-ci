@@ -131,6 +131,154 @@ if [ $BUILD_RESULT -eq 0 ]; then
         ls -la "${VCPKG_DIR}/installed/${TRIPLET}/debug/lib/"*.lib 2>/dev/null | head -10 || echo "  (none found)"
     fi
 
+    # ==========================================================================
+    # Create package with ffmpeg tools, DLLs and PDBs
+    # ==========================================================================
+    echo ""
+    echo "=========================================="
+    echo "Creating FFmpeg package..."
+    echo "=========================================="
+
+    PACKAGE_DIR="${SCRIPT_DIR}/ffmpeg-package"
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    PACKAGE_NAME="ffmpeg-${TRIPLET}-${TIMESTAMP}.zip"
+
+    # Clean and create package directory structure
+    rm -rf "${PACKAGE_DIR}"
+    mkdir -p "${PACKAGE_DIR}/release"
+    mkdir -p "${PACKAGE_DIR}/debug"
+
+    TOOLS_DIR="${VCPKG_DIR}/installed/${TRIPLET}/tools/ffmpeg"
+    DEBUG_TOOLS_DIR="${TOOLS_DIR}/debug"
+
+    # Copy Release files (if not debug-only build)
+    if [ "$BUILD_MODE_ARG" != "debug" ]; then
+        echo "Copying release files..."
+        # Copy exe files
+        for exe in ffmpeg.exe ffprobe.exe ffplay.exe; do
+            if [ -f "${TOOLS_DIR}/${exe}" ]; then
+                cp "${TOOLS_DIR}/${exe}" "${PACKAGE_DIR}/release/"
+                echo "  Copied: release/${exe}"
+            fi
+        done
+        # Copy all DLLs
+        for dll in "${TOOLS_DIR}"/*.dll; do
+            if [ -f "$dll" ]; then
+                cp "$dll" "${PACKAGE_DIR}/release/"
+                echo "  Copied: release/$(basename $dll)"
+            fi
+        done
+        # Copy PDB files from installed directory
+        for pdb in "${VCPKG_DIR}/installed/${TRIPLET}/bin"/*.pdb; do
+            if [ -f "$pdb" ]; then
+                cp "$pdb" "${PACKAGE_DIR}/release/"
+                echo "  Copied: release/$(basename $pdb)"
+            fi
+        done
+        # Also check tools directory for PDBs
+        for pdb in "${TOOLS_DIR}"/*.pdb; do
+            if [ -f "$pdb" ]; then
+                cp "$pdb" "${PACKAGE_DIR}/release/"
+                echo "  Copied: release/$(basename $pdb)"
+            fi
+        done
+    fi
+
+    # Copy Debug files (if debug or both mode)
+    if [ "$BUILD_MODE_ARG" = "both" ] || [ "$BUILD_MODE_ARG" = "debug" ]; then
+        echo "Copying debug files..."
+        # Copy exe files
+        for exe in ffmpeg.exe ffprobe.exe ffplay.exe ffmpeg_g.exe ffprobe_g.exe ffplay_g.exe; do
+            if [ -f "${DEBUG_TOOLS_DIR}/${exe}" ]; then
+                cp "${DEBUG_TOOLS_DIR}/${exe}" "${PACKAGE_DIR}/debug/"
+                echo "  Copied: debug/${exe}"
+            fi
+        done
+        # Copy all DLLs
+        for dll in "${DEBUG_TOOLS_DIR}"/*.dll; do
+            if [ -f "$dll" ]; then
+                cp "$dll" "${PACKAGE_DIR}/debug/"
+                echo "  Copied: debug/$(basename $dll)"
+            fi
+        done
+        # Copy PDB files from installed debug directory
+        for pdb in "${VCPKG_DIR}/installed/${TRIPLET}/debug/bin"/*.pdb; do
+            if [ -f "$pdb" ]; then
+                cp "$pdb" "${PACKAGE_DIR}/debug/"
+                echo "  Copied: debug/$(basename $pdb)"
+            fi
+        done
+        # Also check debug tools directory for PDBs
+        for pdb in "${DEBUG_TOOLS_DIR}"/*.pdb; do
+            if [ -f "$pdb" ]; then
+                cp "$pdb" "${PACKAGE_DIR}/debug/"
+                echo "  Copied: debug/$(basename $pdb)"
+            fi
+        done
+    fi
+
+    # For debug-only build, also copy to release folder (since "release" tools are actually debug)
+    if [ "$BUILD_MODE_ARG" = "debug" ]; then
+        echo "Copying debug files to release folder (debug-only build)..."
+        # Copy exe files from main tools dir
+        for exe in ffmpeg.exe ffprobe.exe ffplay.exe; do
+            if [ -f "${TOOLS_DIR}/${exe}" ]; then
+                cp "${TOOLS_DIR}/${exe}" "${PACKAGE_DIR}/release/"
+                echo "  Copied: release/${exe}"
+            fi
+        done
+        # Copy all DLLs
+        for dll in "${TOOLS_DIR}"/*.dll; do
+            if [ -f "$dll" ]; then
+                cp "$dll" "${PACKAGE_DIR}/release/"
+                echo "  Copied: release/$(basename $dll)"
+            fi
+        done
+        # Copy PDB files
+        for pdb in "${TOOLS_DIR}"/*.pdb; do
+            if [ -f "$pdb" ]; then
+                cp "$pdb" "${PACKAGE_DIR}/release/"
+                echo "  Copied: release/$(basename $pdb)"
+            fi
+        done
+    fi
+
+    # Create zip package
+    echo ""
+    echo "Creating zip package: ${PACKAGE_NAME}"
+    cd "${SCRIPT_DIR}"
+    
+    # Check if zip command is available, otherwise use powershell
+    if command -v zip &> /dev/null; then
+        zip -r "${PACKAGE_NAME}" "ffmpeg-package"
+    else
+        # Use PowerShell for Windows
+        powershell -Command "Compress-Archive -Path 'ffmpeg-package/*' -DestinationPath '${PACKAGE_NAME}' -Force"
+    fi
+
+    if [ -f "${SCRIPT_DIR}/${PACKAGE_NAME}" ]; then
+        PACKAGE_SIZE=$(ls -lh "${SCRIPT_DIR}/${PACKAGE_NAME}" | awk '{print $5}')
+        echo ""
+        echo "=========================================="
+        echo "Package created successfully!"
+        echo "  Location: ${SCRIPT_DIR}/${PACKAGE_NAME}"
+        echo "  Size: ${PACKAGE_SIZE}"
+        echo "=========================================="
+        echo ""
+        echo "Package contents:"
+        if [ "$BUILD_MODE_ARG" != "debug" ]; then
+            echo "  release/  - Release binaries with DLLs and PDBs"
+        fi
+        if [ "$BUILD_MODE_ARG" = "both" ] || [ "$BUILD_MODE_ARG" = "debug" ]; then
+            echo "  debug/    - Debug binaries with DLLs and PDBs"
+        fi
+        if [ "$BUILD_MODE_ARG" = "debug" ]; then
+            echo "  release/  - Debug binaries (debug-only build)"
+        fi
+    else
+        echo "Warning: Failed to create zip package"
+    fi
+
     echo ""
     echo "=========================================="
     echo "To use FFmpeg:"
