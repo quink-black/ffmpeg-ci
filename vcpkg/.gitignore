@@ -9,3 +9,5 @@
 
 # Local build artifacts
 build/
+ffmpeg-package/
+ffmpeg-x64-windows-*.zip

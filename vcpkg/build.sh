@@ -161,12 +161,10 @@ if [ $BUILD_RESULT -eq 0 ]; then
                 echo "  Copied: release/${exe}"
             fi
         done
-        # Copy all DLLs
-        for dll in "${TOOLS_DIR}"/*.dll; do
-            if [ -f "$dll" ]; then
-                cp "$dll" "${PACKAGE_DIR}/release/"
-                echo "  Copied: release/$(basename $dll)"
-            fi
+        # Copy all DLLs (case-insensitive to handle .dll and .DLL)
+        find "${TOOLS_DIR}" -maxdepth 1 -iname "*.dll" -type f | while read dll; do
+            cp "$dll" "${PACKAGE_DIR}/release/"
+            echo "  Copied: release/$(basename "$dll")"
         done
         # Copy PDB files from installed directory
         for pdb in "${VCPKG_DIR}/installed/${TRIPLET}/bin"/*.pdb; do
@@ -194,12 +192,10 @@ if [ $BUILD_RESULT -eq 0 ]; then
                 echo "  Copied: debug/${exe}"
             fi
         done
-        # Copy all DLLs
-        for dll in "${DEBUG_TOOLS_DIR}"/*.dll; do
-            if [ -f "$dll" ]; then
-                cp "$dll" "${PACKAGE_DIR}/debug/"
-                echo "  Copied: debug/$(basename $dll)"
-            fi
+        # Copy all DLLs (case-insensitive to handle .dll and .DLL)
+        find "${DEBUG_TOOLS_DIR}" -maxdepth 1 -iname "*.dll" -type f | while read dll; do
+            cp "$dll" "${PACKAGE_DIR}/debug/"
+            echo "  Copied: debug/$(basename "$dll")"
         done
         # Copy PDB files from installed debug directory
         for pdb in "${VCPKG_DIR}/installed/${TRIPLET}/debug/bin"/*.pdb; do
@@ -227,12 +223,10 @@ if [ $BUILD_RESULT -eq 0 ]; then
                 echo "  Copied: release/${exe}"
             fi
         done
-        # Copy all DLLs
-        for dll in "${TOOLS_DIR}"/*.dll; do
-            if [ -f "$dll" ]; then
-                cp "$dll" "${PACKAGE_DIR}/release/"
-                echo "  Copied: release/$(basename $dll)"
-            fi
+        # Copy all DLLs (case-insensitive to handle .dll and .DLL)
+        find "${TOOLS_DIR}" -maxdepth 1 -iname "*.dll" -type f | while read dll; do
+            cp "$dll" "${PACKAGE_DIR}/release/"
+            echo "  Copied: release/$(basename "$dll")"
         done
         # Copy PDB files
         for pdb in "${TOOLS_DIR}"/*.pdb; do

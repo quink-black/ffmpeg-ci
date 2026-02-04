@@ -624,12 +624,18 @@ if(NOT DEFINED VCPKG_BUILD_TYPE)
 
         # Copy resolved dependencies to destination
         # ONLY copy DLLs that are from vcpkg installed directory
+        # Use case-insensitive comparison because Windows filenames are case-insensitive
+        # but CMake's GET_RUNTIME_DEPENDENCIES may return paths with original case from import table
+        string(TOLOWER "${_VCPKG_INSTALLED}" _VCPKG_INSTALLED_LOWER)
+
         foreach(_dep IN LISTS _RESOLVED_DEPS)
             # Convert path to forward slashes for comparison
             string(REPLACE "\\" "/" _dep_normalized "${_dep}")
-            
-            # Only copy if the DLL is from vcpkg installed directory
-            if(_dep_normalized MATCHES "^${_VCPKG_INSTALLED}/")
+            # Convert to lowercase for case-insensitive comparison
+            string(TOLOWER "${_dep_normalized}" _dep_lower)
+
+            # Only copy if the DLL is from vcpkg installed directory (case-insensitive)
+            if(_dep_lower MATCHES "^${_VCPKG_INSTALLED_LOWER}/")
                 get_filename_component(_dep_name "${_dep}" NAME)
                 set(_dest_file "${DEST_DIR}/${_dep_name}")
                 if(NOT EXISTS "${_dest_file}")
