@@ -2,6 +2,21 @@
 # Simplified version focusing on essential features
 
 # ============================================================================
+# SECTION 0: Build Mode Configuration
+# ============================================================================
+# Read build mode from marker file (set by build.sh)
+# Possible values: release, debug, both (or empty = both)
+set(_BUILD_MODE_FILE "${CURRENT_BUILDTREES_DIR}/.build_mode")
+if(EXISTS "${_BUILD_MODE_FILE}")
+    file(READ "${_BUILD_MODE_FILE}" _FFMPEG_BUILD_MODE)
+    string(STRIP "${_FFMPEG_BUILD_MODE}" _FFMPEG_BUILD_MODE)
+    message(STATUS "FFmpeg build mode (from file): ${_FFMPEG_BUILD_MODE}")
+else()
+    set(_FFMPEG_BUILD_MODE "both")
+    message(STATUS "FFmpeg build mode (default): ${_FFMPEG_BUILD_MODE}")
+endif()
+
+# ============================================================================
 # SECTION 1: Source Path Detection
 # ============================================================================
 get_filename_component(_PORT_DIR "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
@@ -215,18 +230,17 @@ string(APPEND VCPKG_COMBINED_C_FLAGS_RELEASE " -I \"${CURRENT_INSTALLED_DIR}/inc
 # FFmpeg's configure sets CXXFLAGS separately from CFLAGS, so we need to pass CRT flags explicitly
 # For debug: /MDd ensures _ITERATOR_DEBUG_LEVEL=2 (MSVC default) - compatible with vcpkg debug libs
 # For release: /MD ensures _ITERATOR_DEBUG_LEVEL=0 (MSVC default) - compatible with vcpkg release libs
-set(_OPENCV_INCLUDE "")
-if("opencv" IN_LIST FEATURES)
-    set(_OPENCV_INCLUDE "-I\"${CURRENT_INSTALLED_DIR}/include/opencv4\" ")
-endif()
+# IMPORTANT: Use -MDd instead of /MDd because MSYS2 bash interprets /MDd as a path
+# Also add OpenCV include path because FFmpeg's require_cxx fallback doesn't use pkg-config cflags
 if(VCPKG_DETECTED_MSVC)
-    # Debug C++ flags: include /MDd for proper STL debug mode
-    set(EXTRA_CXXFLAGS_DEBUG "${_OPENCV_INCLUDE}/MDd")
-    # Release C++ flags: include /MD for release mode
-    set(EXTRA_CXXFLAGS_RELEASE "${_OPENCV_INCLUDE}/MD")
+    string(REPLACE "\\" "/" _INCLUDE_DIR "${CURRENT_INSTALLED_DIR}/include")
+    # Debug C++ flags: CRT + include paths for OpenCV C++ detection
+    set(EXTRA_CXXFLAGS_DEBUG "-MDd -I${_INCLUDE_DIR} -I${_INCLUDE_DIR}/opencv4")
+    # Release C++ flags: CRT + include paths for OpenCV C++ detection
+    set(EXTRA_CXXFLAGS_RELEASE "-MD -I${_INCLUDE_DIR} -I${_INCLUDE_DIR}/opencv4")
 else()
-    set(EXTRA_CXXFLAGS_DEBUG "${_OPENCV_INCLUDE}")
-    set(EXTRA_CXXFLAGS_RELEASE "${_OPENCV_INCLUDE}")
+    set(EXTRA_CXXFLAGS_DEBUG "")
+    set(EXTRA_CXXFLAGS_RELEASE "")
 endif()
 
 # Setup compiler paths
@@ -316,13 +330,63 @@ set(OPTIONS_RELEASE "--enable-optimizations")
 message(STATUS "Building Options: ${OPTIONS}")
 
 # ============================================================================
+# SECTION 6.5: Generate opencv4.pc for FFmpeg (if OpenCV feature is enabled)
+# ============================================================================
+# vcpkg's OpenCV doesn't generate .pc files, but FFmpeg needs them
+# IMPORTANT: Use absolute paths without ${prefix} variable expansion
+# because pkg-config's "prefix relocation" feature can mess up paths
+if("opencv" IN_LIST FEATURES)
+    message(STATUS "Generating opencv4.pc for FFmpeg")
+    # Convert to Unix-style paths for pkg-config
+    string(REPLACE "\\" "/" _OPENCV_PREFIX "${CURRENT_INSTALLED_DIR}")
+    set(_OPENCV_INCLUDEDIR "${_OPENCV_PREFIX}/include/opencv4")
+    set(_OPENCV_LIBDIR "${_OPENCV_PREFIX}/lib")
+    set(_OPENCV_LIBDIR_DBG "${_OPENCV_PREFIX}/debug/lib")
+
+    # Generate opencv4.pc for release (use fully expanded absolute paths)
+    set(_OPENCV_PC_CONTENT "# OpenCV pkg-config for vcpkg
+# Use absolute paths to avoid pkg-config prefix relocation issues
+
+Name: opencv4
+Description: OpenCV (Open Source Computer Vision Library)
+Version: 4.10.0
+Libs: -L${_OPENCV_LIBDIR} -lopencv_core4 -lopencv_imgproc4 -lopencv_objdetect4
+Cflags: -I${_OPENCV_INCLUDEDIR}
+")
+    file(WRITE "${CURRENT_INSTALLED_DIR}/lib/pkgconfig/opencv4.pc" "${_OPENCV_PC_CONTENT}")
+
+    # Generate opencv4.pc for debug (if debug lib exists)
+    # Note: include dir is same as release, only lib dir changes
+    if(EXISTS "${CURRENT_INSTALLED_DIR}/debug/lib")
+        set(_OPENCV_PC_DBG_CONTENT "# OpenCV pkg-config for vcpkg (Debug)
+# Use absolute paths to avoid pkg-config prefix relocation issues
+
+Name: opencv4
+Description: OpenCV (Open Source Computer Vision Library) - Debug
+Version: 4.10.0
+Libs: -L${_OPENCV_LIBDIR_DBG} -lopencv_core4d -lopencv_imgproc4d -lopencv_objdetect4d
+Cflags: -I${_OPENCV_INCLUDEDIR}
+")
+        file(MAKE_DIRECTORY "${CURRENT_INSTALLED_DIR}/debug/lib/pkgconfig")
+        file(WRITE "${CURRENT_INSTALLED_DIR}/debug/lib/pkgconfig/opencv4.pc" "${_OPENCV_PC_DBG_CONTENT}")
+    endif()
+endif()
+
+# ============================================================================
 # SECTION 7: Release Build
 # ============================================================================
-if(NOT VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "release")
+# Build release if: build mode is 'release' or 'both', AND vcpkg allows it
+set(_DO_RELEASE_BUILD FALSE)
+if(_FFMPEG_BUILD_MODE STREQUAL "release" OR _FFMPEG_BUILD_MODE STREQUAL "both")
+    if(NOT VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "release")
+        set(_DO_RELEASE_BUILD TRUE)
+    endif()
+endif()
+if(_DO_RELEASE_BUILD)
     if(VCPKG_DETECTED_MSVC)
         set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=-libpath:\"${CURRENT_INSTALLED_DIR}/lib\"")
         set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=iconv.lib")
-        set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-cxxflags=${EXTRA_CXXFLAGS_RELEASE}")
+        set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-cxxflags='${EXTRA_CXXFLAGS_RELEASE}'")
     else()
         set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=-L\"${CURRENT_INSTALLED_DIR}/lib\"")
     endif()
@@ -361,12 +425,19 @@ endif()
 # ============================================================================
 # SECTION 8: Debug Build
 # ============================================================================
-if(NOT VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "debug")
+# Build debug if: build mode is 'debug' or 'both', AND vcpkg allows it
+set(_DO_DEBUG_BUILD FALSE)
+if(_FFMPEG_BUILD_MODE STREQUAL "debug" OR _FFMPEG_BUILD_MODE STREQUAL "both")
+    if(NOT VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "debug")
+        set(_DO_DEBUG_BUILD TRUE)
+    endif()
+endif()
+if(_DO_DEBUG_BUILD)
     if(VCPKG_DETECTED_MSVC)
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-libpath:\"${CURRENT_INSTALLED_DIR}/debug/lib\"")
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-libpath:\"${CURRENT_INSTALLED_DIR}/lib\"")
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=iconv.lib")
-        set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-cxxflags=${EXTRA_CXXFLAGS_DEBUG}")
+        set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-cxxflags='${EXTRA_CXXFLAGS_DEBUG}'")
     else()
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-L\"${CURRENT_INSTALLED_DIR}/debug/lib\"")
         set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-L\"${CURRENT_INSTALLED_DIR}/lib\"")
@@ -444,13 +515,26 @@ endif()
 # SECTION 10: Install Tools
 # ============================================================================
 # Determine tools search directory
-if(DEFINED VCPKG_BUILD_TYPE AND VCPKG_BUILD_TYPE STREQUAL "debug")
+# Note: When _BUILD_DEBUG_ONLY is set, tools are in debug/bin instead of bin
+message(STATUS "SECTION 10: _BUILD_DEBUG_ONLY = ${_BUILD_DEBUG_ONLY}")
+message(STATUS "SECTION 10: VCPKG_BUILD_TYPE = ${VCPKG_BUILD_TYPE}")
+message(STATUS "SECTION 10: debug/bin exists = ${CURRENT_PACKAGES_DIR}/debug/bin")
+
+# Check if debug/bin exists and bin doesn't (debug-only build)
+if(EXISTS "${CURRENT_PACKAGES_DIR}/debug/bin" AND NOT EXISTS "${CURRENT_PACKAGES_DIR}/bin")
     set(TOOLS_SEARCH_DIR "${CURRENT_PACKAGES_DIR}/debug/bin")
+    message(STATUS "Using debug/bin for tools")
+elseif((DEFINED VCPKG_BUILD_TYPE AND VCPKG_BUILD_TYPE STREQUAL "debug") OR _BUILD_DEBUG_ONLY)
+    set(TOOLS_SEARCH_DIR "${CURRENT_PACKAGES_DIR}/debug/bin")
+    message(STATUS "Using debug/bin for tools (via flags)")
 else()
     set(TOOLS_SEARCH_DIR "${CURRENT_PACKAGES_DIR}/bin")
+    message(STATUS "Using bin for tools")
 endif()
 
-# Copy Release tools
+message(STATUS "TOOLS_SEARCH_DIR = ${TOOLS_SEARCH_DIR}")
+
+# Copy Release tools (or debug tools if only debug is built)
 if("ffmpeg" IN_LIST FEATURES)
     vcpkg_copy_tools(TOOL_NAMES ffmpeg SEARCH_DIR "${TOOLS_SEARCH_DIR}" AUTO_CLEAN)
 endif()
@@ -505,8 +589,9 @@ if(NOT DEFINED VCPKG_BUILD_TYPE)
     endforeach()
 
     # ========================================================================
-    # Recursive DLL dependency resolution using dumpbin
-    # This function finds all DLL dependencies for an executable
+    # Recursive DLL dependency resolution using CMake file(GET_RUNTIME_DEPENDENCIES)
+    # This function finds all DLL dependencies for an executable recursively
+    # Only copies DLLs that come from vcpkg installed directory
     # ========================================================================
     function(copy_dll_dependencies EXE_PATH DEST_DIR SEARCH_DIRS IS_DEBUG)
         if(NOT EXISTS "${EXE_PATH}")
@@ -514,111 +599,53 @@ if(NOT DEFINED VCPKG_BUILD_TYPE)
             return()
         endif()
 
-        # Use dumpbin to get DLL dependencies
-        execute_process(
-            COMMAND dumpbin /DEPENDENTS "${EXE_PATH}"
-            OUTPUT_VARIABLE DUMPBIN_OUTPUT
-            ERROR_QUIET
-            OUTPUT_STRIP_TRAILING_WHITESPACE
+        message(STATUS "Resolving runtime dependencies for: ${EXE_PATH}")
+        message(STATUS "Search directories: ${SEARCH_DIRS}")
+
+        # Get vcpkg installed directory for filtering (convert to forward slashes)
+        string(REPLACE "\\" "/" _VCPKG_INSTALLED "${CURRENT_INSTALLED_DIR}")
+
+        # Use CMake's file(GET_RUNTIME_DEPENDENCIES) to find all DLLs recursively
+        # This handles the entire dependency tree automatically
+        file(GET_RUNTIME_DEPENDENCIES
+            EXECUTABLES "${EXE_PATH}"
+            RESOLVED_DEPENDENCIES_VAR _RESOLVED_DEPS
+            UNRESOLVED_DEPENDENCIES_VAR _UNRESOLVED_DEPS
+            CONFLICTING_DEPENDENCIES_PREFIX _CONFLICTING_DEPS
+            DIRECTORIES ${SEARCH_DIRS}
+            PRE_EXCLUDE_REGEXES
+                # Exclude Windows API sets
+                "^api-ms-win-.*"
+                "^ext-ms-.*"
+            POST_EXCLUDE_REGEXES
+                # Exclude everything NOT from vcpkg installed directory
+                # This is done by including only vcpkg paths in the copy loop below
         )
 
-        # Parse dumpbin output to extract DLL names
-        string(REPLACE "\n" ";" DUMPBIN_LINES "${DUMPBIN_OUTPUT}")
-        set(_NEEDED_DLLS "")
-        foreach(_line IN LISTS DUMPBIN_LINES)
-            string(STRIP "${_line}" _line)
-            # DLL names appear as lines ending with .dll (case insensitive)
-            if(_line MATCHES "^[A-Za-z0-9_\\-\\.]+\\.[Dd][Ll][Ll]$")
-                list(APPEND _NEEDED_DLLS "${_line}")
+        # Copy resolved dependencies to destination
+        # ONLY copy DLLs that are from vcpkg installed directory
+        foreach(_dep IN LISTS _RESOLVED_DEPS)
+            # Convert path to forward slashes for comparison
+            string(REPLACE "\\" "/" _dep_normalized "${_dep}")
+            
+            # Only copy if the DLL is from vcpkg installed directory
+            if(_dep_normalized MATCHES "^${_VCPKG_INSTALLED}/")
+                get_filename_component(_dep_name "${_dep}" NAME)
+                set(_dest_file "${DEST_DIR}/${_dep_name}")
+                if(NOT EXISTS "${_dest_file}")
+                    file(COPY "${_dep}" DESTINATION "${DEST_DIR}")
+                    message(STATUS "Copied: ${_dep_name}")
+                endif()
             endif()
         endforeach()
 
-        # System DLLs to skip (Windows system libraries)
-        set(_SYSTEM_DLLS
-            "KERNEL32.dll" "kernel32.dll"
-            "USER32.dll" "user32.dll"
-            "GDI32.dll" "gdi32.dll"
-            "ADVAPI32.dll" "advapi32.dll"
-            "SHELL32.dll" "shell32.dll"
-            "ole32.dll" "OLE32.dll"
-            "OLEAUT32.dll" "oleaut32.dll"
-            "COMCTL32.dll" "comctl32.dll"
-            "COMDLG32.dll" "comdlg32.dll"
-            "SHLWAPI.dll" "shlwapi.dll"
-            "WS2_32.dll" "ws2_32.dll"
-            "WINMM.dll" "winmm.dll"
-            "WINSPOOL.DRV" "winspool.drv"
-            "MSVCRT.dll" "msvcrt.dll"
-            "MSVCP140.dll" "msvcp140.dll"
-            "VCRUNTIME140.dll" "vcruntime140.dll"
-            "VCRUNTIME140_1.dll" "vcruntime140_1.dll"
-            "ucrtbase.dll" "UCRTBASE.dll"
-            "api-ms-win-*"
-            "ntdll.dll" "NTDLL.dll"
-            "bcrypt.dll" "BCRYPT.dll"
-            "crypt32.dll" "CRYPT32.dll"
-            "secur32.dll" "SECUR32.dll"
-            "mfplat.dll" "MFPLAT.dll"
-            "mfuuid.dll"
-            "d3d11.dll" "D3D11.dll"
-            "dxgi.dll" "DXGI.dll"
-            "d3d12.dll"
-            "IMM32.dll" "imm32.dll"
-            "VERSION.dll" "version.dll"
-            "SETUPAPI.dll" "setupapi.dll"
-        )
-
-        foreach(_dll_name IN LISTS _NEEDED_DLLS)
-            # Skip system DLLs
-            set(_is_system FALSE)
-            foreach(_sys_dll IN LISTS _SYSTEM_DLLS)
-                if(_dll_name MATCHES "${_sys_dll}" OR _dll_name STREQUAL "${_sys_dll}")
-                    set(_is_system TRUE)
-                    break()
-                endif()
+        # Log unresolved dependencies (usually system DLLs - this is expected)
+        if(_UNRESOLVED_DEPS)
+            message(STATUS "Unresolved dependencies (system DLLs, expected):")
+            foreach(_unres IN LISTS _UNRESOLVED_DEPS)
+                message(STATUS "  - ${_unres}")
             endforeach()
-
-            if(_is_system)
-                continue()
-            endif()
-
-            # Skip if already copied
-            if(EXISTS "${DEST_DIR}/${_dll_name}")
-                continue()
-            endif()
-
-            # Search for the DLL in provided directories
-            set(_dll_found FALSE)
-            foreach(_search_dir IN LISTS SEARCH_DIRS)
-                # Case-insensitive search on Windows
-                file(GLOB _found_dlls "${_search_dir}/${_dll_name}" "${_search_dir}/${_dll_name}")
-                if(NOT _found_dlls)
-                    # Try lowercase
-                    string(TOLOWER "${_dll_name}" _dll_name_lower)
-                    file(GLOB _found_dlls "${_search_dir}/${_dll_name_lower}")
-                endif()
-                if(NOT _found_dlls)
-                    # Try uppercase
-                    string(TOUPPER "${_dll_name}" _dll_name_upper)
-                    file(GLOB _found_dlls "${_search_dir}/${_dll_name_upper}")
-                endif()
-
-                if(_found_dlls)
-                    list(GET _found_dlls 0 _dll_path)
-                    file(COPY "${_dll_path}" DESTINATION "${DEST_DIR}")
-                    message(STATUS "Copied ${_dll_name} to ${DEST_DIR}")
-                    set(_dll_found TRUE)
-
-                    # Recursively copy dependencies of this DLL
-                    copy_dll_dependencies("${_dll_path}" "${DEST_DIR}" "${SEARCH_DIRS}" ${IS_DEBUG})
-                    break()
-                endif()
-            endforeach()
-
-            if(NOT _dll_found)
-                message(STATUS "DLL not found in vcpkg (may be system DLL): ${_dll_name}")
-            endif()
-        endforeach()
+        endif()
     endfunction()
 
     # Define search directories for debug (prefer debug, fallback to release)
@@ -643,8 +670,14 @@ if(NOT DEFINED VCPKG_BUILD_TYPE)
 endif()
 
 # Copy DLLs for release tools
+# Always include debug directories in search path to support debug-only builds
+# When only debug is built, the "release" tools are actually debug builds
 set(RELEASE_TOOLS_DIR "${CURRENT_PACKAGES_DIR}/tools/${PORT}")
+
+# Always search both debug and release directories
+# This ensures debug-only builds work correctly
 set(_RELEASE_SEARCH_DIRS
+    "${CURRENT_INSTALLED_DIR}/debug/bin"
     "${CURRENT_INSTALLED_DIR}/bin"
 )
 
@@ -673,7 +706,17 @@ vcpkg_fixup_pkgconfig()
 file(INSTALL "${CMAKE_CURRENT_LIST_DIR}/usage" DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}")
 
 # Handle copyright
-file(STRINGS "${CURRENT_BUILDTREES_DIR}/build-${TARGET_TRIPLET}-rel-out.log" LICENSE_STRING REGEX "License: .*" LIMIT_COUNT 1)
+# Try release log first, then debug log if release doesn't exist (debug-only build)
+set(_BUILD_LOG_FILE "${CURRENT_BUILDTREES_DIR}/build-${TARGET_TRIPLET}-rel-out.log")
+if(NOT EXISTS "${_BUILD_LOG_FILE}")
+    set(_BUILD_LOG_FILE "${CURRENT_BUILDTREES_DIR}/build-${TARGET_TRIPLET}-dbg-out.log")
+endif()
+if(EXISTS "${_BUILD_LOG_FILE}")
+    file(STRINGS "${_BUILD_LOG_FILE}" LICENSE_STRING REGEX "License: .*" LIMIT_COUNT 1)
+else()
+    set(LICENSE_STRING "")
+endif()
+
 if(LICENSE_STRING STREQUAL "License: LGPL version 2.1 or later")
     set(LICENSE_FILE "COPYING.LGPLv2.1")
 elseif(LICENSE_STRING STREQUAL "License: LGPL version 3 or later")

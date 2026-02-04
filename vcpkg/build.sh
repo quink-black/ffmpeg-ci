@@ -26,36 +26,38 @@ for arg in "$@"; do
         --debug-only) BUILD_MODE_ARG="debug" ;;
         --force) FORCE_REBUILD=1 ;;
         --clean) CLEAN_FIRST=1 ;;
-        --help|-h) 
+        --help|-h)
             echo "Usage: $0 [--debug] [--debug-only] [--force] [--clean]"
             echo "  --debug      : Build both Release and Debug configurations"
             echo "  --debug-only : Build Debug configuration only (faster for testing)"
             echo "  --force      : Force rebuild"
             echo "  --clean      : Clean before building"
-            exit 0 
+            exit 0
             ;;
     esac
 done
 
-# Configure build mode
-TRIPLET_FILE="${VCPKG_DIR}/triplets/${TRIPLET}.cmake"
-sed -i "/VCPKG_BUILD_TYPE/d" "${TRIPLET_FILE}" 2>/dev/null || true
+# Configure build mode via marker file (read by portfile.cmake)
+# Note: Environment variables and --x-cmake-args don't work reliably with portfile.cmake
+# So we use a marker file that portfile.cmake can check
+BUILD_MODE_FILE="${VCPKG_DIR}/buildtrees/ffmpeg/.build_mode"
+mkdir -p "${VCPKG_DIR}/buildtrees/ffmpeg"
 
 case "$BUILD_MODE_ARG" in
     "both")
         BUILD_MODE="Release + Debug"
         LOG_FILE="${HOME}/ffmpeg_build.log"
-        # Don't set VCPKG_BUILD_TYPE to build both
+        echo "both" > "${BUILD_MODE_FILE}"
         ;;
     "debug")
         BUILD_MODE="Debug only"
         LOG_FILE="${HOME}/ffmpeg_debug_build.log"
-        echo "set(VCPKG_BUILD_TYPE debug)" >> "${TRIPLET_FILE}"
+        echo "debug" > "${BUILD_MODE_FILE}"
         ;;
     *)
         BUILD_MODE="Release only"
         LOG_FILE="${HOME}/ffmpeg_release_build.log"
-        echo "set(VCPKG_BUILD_TYPE release)" >> "${TRIPLET_FILE}"
+        echo "release" > "${BUILD_MODE_FILE}"
         ;;
 esac
 
@@ -64,15 +66,24 @@ if [ $CLEAN_FIRST -eq 1 ] || [ $FORCE_REBUILD -eq 1 ]; then
     echo "Cleaning previous build..."
     "${VCPKG_DIR}/vcpkg.exe" remove ffmpeg:${TRIPLET} --recurse 2>/dev/null || true
     rm -rf "${VCPKG_DIR}/buildtrees/ffmpeg" "${VCPKG_DIR}/packages/ffmpeg_${TRIPLET}"
+    # Recreate the marker file after cleaning
+    mkdir -p "${VCPKG_DIR}/buildtrees/ffmpeg"
+    case "$BUILD_MODE_ARG" in
+        "both") echo "both" > "${BUILD_MODE_FILE}" ;;
+        "debug") echo "debug" > "${BUILD_MODE_FILE}" ;;
+        *) echo "release" > "${BUILD_MODE_FILE}" ;;
+    esac
 fi
 
 echo ""
-echo "==========================================" 
+echo "=========================================="
 echo "Building FFmpeg (${BUILD_MODE})"
-echo "==========================================" 
+echo "=========================================="
 echo "VCPKG_DIR: ${VCPKG_DIR}"
 echo "OVERLAY_PORTS: ${OVERLAY_PORTS}"
 echo "LOG_FILE: ${LOG_FILE}"
+echo "BUILD_MODE_FILE: ${BUILD_MODE_FILE}"
+echo "BUILD_MODE_CONTENT: $(cat ${BUILD_MODE_FILE})"
 echo ""
 
 cd "${VCPKG_DIR}"
@@ -96,12 +107,12 @@ BUILD_RESULT=$?
 
 if [ $BUILD_RESULT -eq 0 ]; then
     echo ""
-    echo "==========================================" 
+    echo "=========================================="
     echo "Build completed successfully!"
-    echo "==========================================" 
+    echo "=========================================="
     echo ""
     echo "Output locations:"
-    
+
     if [ "$BUILD_MODE_ARG" != "debug" ]; then
         echo ""
         echo "Release tools:"
@@ -110,7 +121,7 @@ if [ $BUILD_RESULT -eq 0 ]; then
         echo "Release libraries:"
         ls -la "${VCPKG_DIR}/installed/${TRIPLET}/lib/"*.lib 2>/dev/null | head -10 || echo "  (none found)"
     fi
-    
+
     if [ "$BUILD_MODE_ARG" = "both" ] || [ "$BUILD_MODE_ARG" = "debug" ]; then
         echo ""
         echo "Debug tools:"
@@ -119,9 +130,9 @@ if [ $BUILD_RESULT -eq 0 ]; then
         echo "Debug libraries:"
         ls -la "${VCPKG_DIR}/installed/${TRIPLET}/debug/lib/"*.lib 2>/dev/null | head -10 || echo "  (none found)"
     fi
-    
+
     echo ""
-    echo "==========================================" 
+    echo "=========================================="
     echo "To use FFmpeg:"
     if [ "$BUILD_MODE_ARG" != "debug" ]; then
         echo "  Release: ${VCPKG_DIR}/installed/${TRIPLET}/tools/ffmpeg/ffmpeg.exe"
@@ -129,7 +140,7 @@ if [ $BUILD_RESULT -eq 0 ]; then
     if [ "$BUILD_MODE_ARG" = "both" ] || [ "$BUILD_MODE_ARG" = "debug" ]; then
         echo "  Debug:   ${VCPKG_DIR}/installed/${TRIPLET}/tools/ffmpeg/debug/ffmpeg.exe"
     fi
-    echo "==========================================" 
+    echo "=========================================="
 else
     echo ""
     echo "Build FAILED! Check log: ${LOG_FILE}"
