@@ -18,6 +18,7 @@ TRIPLET="x64-windows"
 BUILD_MODE_ARG=""
 FORCE_REBUILD=0
 CLEAN_FIRST=0
+VCPKG_EXTRA_ARGS=""
 
 # Parse arguments
 for arg in "$@"; do
@@ -66,6 +67,19 @@ if [ $CLEAN_FIRST -eq 1 ] || [ $FORCE_REBUILD -eq 1 ]; then
     echo "Cleaning previous build..."
     "${VCPKG_DIR}/vcpkg.exe" remove ffmpeg:${TRIPLET} --recurse 2>/dev/null || true
     rm -rf "${VCPKG_DIR}/buildtrees/ffmpeg" "${VCPKG_DIR}/packages/ffmpeg_${TRIPLET}"
+    # Also clean installed ffmpeg files to ensure full rebuild
+    rm -rf "${VCPKG_DIR}/installed/${TRIPLET}/include/libav*"
+    rm -rf "${VCPKG_DIR}/installed/${TRIPLET}/include/libsw*"
+    rm -rf "${VCPKG_DIR}/installed/${TRIPLET}/lib/libav*"
+    rm -rf "${VCPKG_DIR}/installed/${TRIPLET}/lib/libsw*"
+    rm -rf "${VCPKG_DIR}/installed/${TRIPLET}/lib/pkgconfig/libav*"
+    rm -rf "${VCPKG_DIR}/installed/${TRIPLET}/lib/pkgconfig/libsw*"
+    rm -rf "${VCPKG_DIR}/installed/${TRIPLET}/debug/lib/libav*"
+    rm -rf "${VCPKG_DIR}/installed/${TRIPLET}/debug/lib/libsw*"
+    rm -rf "${VCPKG_DIR}/installed/${TRIPLET}/tools/ffmpeg"
+    rm -rf "${VCPKG_DIR}/installed/${TRIPLET}/share/ffmpeg"
+    # Disable binary caching to force rebuild from source
+    VCPKG_EXTRA_ARGS="--no-binarycaching"
     # Recreate the marker file after cleaning
     mkdir -p "${VCPKG_DIR}/buildtrees/ffmpeg"
     case "$BUILD_MODE_ARG" in
@@ -101,7 +115,7 @@ echo ""
 ./vcpkg.exe install "ffmpeg[${FFMPEG_FEATURES}]" \
     --overlay-ports="${OVERLAY_PORTS}" \
     --triplet="${TRIPLET}" \
-    --recurse 2>&1 | tee "${LOG_FILE}"
+    --recurse ${VCPKG_EXTRA_ARGS} 2>&1 | tee "${LOG_FILE}"
 
 BUILD_RESULT=$?
 
