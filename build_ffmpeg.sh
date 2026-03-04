@@ -61,6 +61,9 @@ if ! [ -d ${ffmpeg_src} ]; then
     exit 1
 fi
 
+# Convert to absolute path so it remains valid after pushd
+ffmpeg_src="$(cd "${ffmpeg_src}" && pwd)"
+
 source ${DIR}/env.sh
 
 extra_config=" "
