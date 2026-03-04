@@ -2,6 +2,12 @@
 
 set -e
 
+# Resolve the directory containing this script so the script can be run
+# directly (e.g. from CLion) without requiring DIR to be pre-set by a
+# parent script like cibuild.sh.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+: "${DIR:=${SCRIPT_DIR}}"
+
 ffmpeg_build=${build_dir}/ffmpeg
 fate_samples=${DIR}/ffmpeg-fate-sample
 
