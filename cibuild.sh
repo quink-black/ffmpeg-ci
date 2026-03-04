@@ -45,8 +45,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if true; then
-# first build tools needs by other projects
+# first build tools needed by other projects
 ./build_nasm.sh
 
 source ./env.sh
@@ -56,8 +55,8 @@ source ./env.sh
 #./build_vmaf.sh
 #./build_vvdec.sh
 #./build_x264.sh
-make -j$(nproc)
-fi
+NPROC=$(nproc 2>/dev/null || sysctl -n hw.logicalcpu)
+make -j${NPROC}
 
 ./build_ffmpeg.sh --path $ffmpeg_src \
     ${do_test} \

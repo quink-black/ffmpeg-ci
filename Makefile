@@ -16,7 +16,8 @@ export CMAKE_INSTALL_PREFIX := ${install_dir}
 CPU := $(shell uname -p)
 OS := $(shell uname -o)
 
-MAKEFLAGS := -j $(shell nproc)
+NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu)
+MAKEFLAGS := -j $(NPROC)
 
 CROSS_PREFIX := ""
 HOST := ""
@@ -186,15 +187,15 @@ all: ${third_party}
 clean:
 	rm -f ${clean_libs}
 
-path ?= "../ffmpeg"
-test ?= ""
-skip_test_case ?= ""
+path ?= ../ffmpeg
+do_test ?=
+skip_test_case ?=
 enable_asan ?= 0
 enable_opt ?= 0
 
-ffmpeg: ${path} ${third_party}
+ffmpeg: ${third_party}
 	./build_ffmpeg.sh --path ${path} \
-		${test} \
-		--skip_test_case ${skip_test_case} \
+		${do_test} \
+		--skip_test_case "${skip_test_case}" \
 		--enable_asan ${enable_asan} \
 		--enable_opt ${enable_opt}

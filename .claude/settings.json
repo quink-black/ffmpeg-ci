@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source:*)",
+      "Bash(make:*)",
+      "Bash(./cibuild.sh:*)",
+      "Bash(./build_ffmpeg.sh:*)",
+      "Bash(./build_*.sh:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(cat:*)",
+      "Bash(file:*)",
+      "Bash(nm:*)",
+      "Bash(objdump:*)",
+      "Bash(lldb:*)",
+      "Bash(gdb:*)",
+      "Bash(./ffmpeg:*)",
+      "Bash(./ffprobe:*)",
+      "Bash(./ffplay:*)"
+    ]
+  },
+  "env": {
+    "DYLD_LIBRARY_PATH": "$PWD/install/lib:$PWD/install/lib64",
+    "LD_LIBRARY_PATH": "$PWD/install/lib:$PWD/install/lib64",
+    "PKG_CONFIG_PATH": "$PWD/install/lib/pkgconfig:$PWD/install/lib64/pkgconfig"
+  }
+}

@@ -162,6 +162,8 @@ else
     ffmpeg_build=${ffmpeg_build}_opt
 fi
 
+NPROC=$(nproc 2>/dev/null || sysctl -n hw.logicalcpu)
+
 mkdir -p $build_dir
 
 pushd $build_dir
@@ -206,11 +208,11 @@ $ffmpeg_src/configure \
     ${extra_config} 
 
 
-make -j $(nproc)
+make -j ${NPROC}
 
 if [ "$do_test" -eq 1 ]; then
-    make fate-rsync -j $(nproc)
-    VERBOSE=1 make fate -j $(nproc)
+    make fate-rsync -j ${NPROC}
+    VERBOSE=1 make fate -j ${NPROC}
 fi
 
 if [ "$do_install" -eq 1 ]; then
