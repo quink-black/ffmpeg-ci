@@ -113,8 +113,12 @@ Key subdirectories within the FFmpeg source:
 ## Development Workflow
 
 1. Edit FFmpeg source in `<ffmpeg-src-dir>`
-2. Rebuild FFmpeg only: `source ./env.sh && ./build_ffmpeg.sh --path <ffmpeg-src-dir> --enable_opt 0`
+2. Rebuild FFmpeg only (fast iteration): `cd build/ffmpeg && make -j$(sysctl -n hw.ncpu)`
 3. Test: `./build/ffmpeg/ffmpeg <args>`
+4. When a clean rebuild is needed (e.g. configure changes): `./cibuild.sh --skip_test --path <ffmpeg-src-dir>`
+
+> **Note**: For day-to-day code changes, just run `make` inside `build/ffmpeg/`.
+> The full `cibuild.sh` is only necessary when you need to reconfigure or start fresh.
 
 ## Notes
 
