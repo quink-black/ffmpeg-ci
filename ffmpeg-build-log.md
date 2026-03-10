@@ -428,7 +428,69 @@ Built targets:
 
 ---
 
-## 阶段 10: 构建质量提升（待开始）
+## 阶段 10: Windows MSVC 构建支持（已完成）
+
+### 目标
+验证并修复 CMake 构建系统在 Windows MSVC 环境下的正确性。
+
+### 进度
+- [x] 修复 Windows 套接字结构体检测（Winsock2 structs force-set to 1）
+- [x] 添加 `HAVE_GETADDRINFO` 检测（Windows 强制设为 1）
+- [x] 验证 `HAVE_WINDOWS_H` / `HAVE_WINSOCK2_H` / `HAVE_WS2TCPIP_H` 检测
+- [x] 添加 Windows 特定函数检测（`SetDllDirectory`, `GetModuleHandle` 等）
+- [x] 添加 MSVC 特定编译器警告标志（/W3 /wd4018 /wd4244 等）
+- [x] 使用 `/std:c17` 启用 C17 标准
+- [x] 使用 `compat/atomics/win32/stdatomic.h` 替代系统 stdatomic.h
+- [x] 链接 `ws2_32.lib` 到 libavformat
+- [x] 修复 SIMD 外部符号：force-enable AESNI/FMA3/FMA4/XOP/AVX512/AVX512ICL/MMXEXT
+- [x] 排除 64-bit MSVC 不支持的 MMX（`_mm_empty()` 不可用）
+- [x] 生成 `vf_drawtext_stub.c`（FreeType2 不可用时提供 `ff_vf_drawtext` 存根）
+- [x] 生成 `avformat_xml_stubs.c`（libxml2/OpenSSL 不可用时提供 dash/imf/whip/unix 存根）
+- [x] 排除 `hscale_fast_bilinear_simd.c`（需要 GCC inline asm，MSVC 不支持）
+
+### 关键问题修复
+
+| 问题 | 原因 | 修复方案 |
+|------|------|----------|
+| `ff_aes_decrypt_10_aesni` 等符号缺失 | `HAVE_AESNI_EXTERNAL=0`，NASM 汇编未启用 | `FFmpegArch.cmake`：强制设置 AESNI/FMA3/FMA4/XOP/AVX512/AVX512ICL/MMXEXT 的 `_EXTERNAL=1` |
+| `__WSAFDIsSet`、`select` 等 Winsock 符号缺失 | `avformat` 未链接 `ws2_32.lib` | `libavformat/CMakeLists.txt`：Windows 下添加 `target_link_libraries(avformat PRIVATE ws2_32)` |
+| `ff_dash_demuxer`、`ff_imf_demuxer` 未定义 | `dashdec.c`/`imfdec.c` 被排除（无 libxml2），但 `allformats.c` 无条件引用 | `libavformat/CMakeLists.txt`：生成存根文件 `avformat_xml_stubs.c` |
+| `ff_whip_muxer` 未定义 | `whip.c` 被排除（无 OpenSSL），但 `allformats.c` 无条件引用 | 同上，在存根文件中提供 |
+| `ff_unix_protocol` 未定义 | `unix.c` 被排除（Windows 无 `sys/un.h`），但 `protocols.c` 无条件引用 | 同上，在存根文件中提供 |
+| `ff_vf_drawtext` 未定义 | `vf_drawtext.c` 被排除（无 FreeType2），但 `allfilters.c` 无条件引用 | `libavfilter/CMakeLists.txt`：生成存根文件 `vf_drawtext_stub.c` |
+| `_mm_empty` 未定义 | 64 位 MSVC 不支持 MMX intrinsics | `FFmpegArch.cmake`：从强制设置列表中移除 `MMX` |
+
+### 完成时间
+2026-03-10
+
+### 编译验证
+```
+Build: [206/206] Linking C executable fftools\ffmpeg.exe  ✅
+
+fftools/ffmpeg.exe   ✅ (37.4 MB)
+fftools/ffprobe.exe  ✅ (37.0 MB)
+avcodec.lib          ✅
+avformat.lib         ✅
+avfilter.lib         ✅
+avutil.lib           ✅
+swscale.lib          ✅
+swresample.lib       ✅
+avdevice.lib         ✅
+```
+
+### 提交信息
+- `cmake: add MSVC/Windows build support` (99b13e5bc8)
+  - Branch: `cmake-build-3`
+  - 8 files changed, 441 insertions(+), 78 deletions(-)
+
+### 构建环境
+- **代码分支**: `cmake-build-3`
+- **构建系统**: Visual Studio 2022 + MSVC 19.44.35221
+- **构建脚本**: `ffmpeg-ci/win/cmake_build.sh`
+
+---
+
+## 阶段 11: 构建质量提升（待开始）
 
 ### 目标
 修复上述差异，确保 CMake 构建与 configure 构建功能一致。
@@ -439,3 +501,36 @@ Built targets:
 - [ ] 运行更多功能测试（编解码、转封装）
 - [ ] 完善第三方库检测，启用更多外部编解码器
 - [ ] 修复发现的差异和问题
+
+---
+
+## 阶段 12: Windows MSVC 功能验证（待开始）
+
+### 目标
+在 Windows 上运行 ffmpeg.exe 并验证基本功能。
+
+### TODO 列表
+
+#### P0 - 基本运行验证
+- [ ] 验证 `ffmpeg.exe -version` 输出正常
+- [ ] 验证 `ffprobe.exe -version` 输出正常
+- [ ] 验证编解码器列表（`ffmpeg -codecs`）
+
+#### P1 - 功能测试
+- [ ] 视频编码测试（testsrc → mpeg4）
+- [ ] 音视频编码测试（testsrc + sine → mp4）
+- [ ] 格式转换测试
+
+#### P1 - 硬件加速（可选）
+- [ ] 启用 D3D11VA 解码支持（`CONFIG_D3D11VA`）
+- [ ] 启用 DXVA2 解码支持（`CONFIG_DXVA2`）
+- [ ] 启用 MediaFoundation（`CONFIG_MEDIAFOUNDATION`）
+
+#### P2 - 设备支持（可选）
+- [ ] 添加 dshow（DirectShow）输入设备支持
+- [ ] 添加 gdigrab（屏幕捕获）输入设备支持
+
+#### P2 - 第三方库（可选）
+- [ ] 集成 OpenSSL（启用 HTTPS/TLS 支持）
+- [ ] 集成 x264/x265（启用 H.264/H.265 编码）
+- [ ] 集成 FreeType2（启用 drawtext filter）
