@@ -65,14 +65,32 @@ Multiple candidate directions:
 
 ---
 
-## Rule 7: Cut Losses Early
+## Rule 7: Cut Losses Early — Stop Signs
 
 **Must** proactively report and recommend stopping when any of these occur:
 
+### Quantitative Stop Signs
 1. Envelope calculation shows negative net gain.
 2. Two consecutive approaches yield negative measured gain.
+
+### Assumption Stop Signs
 3. Core assumption disproven by measurement.
-4. Architectural blocker found (e.g., GPU results not consumed by CPU).
+4. **Data source mismatch**: Assumed location ≠ actual location.
+5. **Timing mismatch**: Data not available when needed.
+
+### Architecture Stop Signs
+6. **Architectural blocker found**: e.g., GPU results not consumed by CPU.
+7. **Hidden intermediate layer discovered**: Temp buffers, conversion layers that cannot be bypassed.
+8. **Architecture change required**: Optimization requires changing architecture, not just implementation.
+
+### Process Stop Signs
+9. **Debugging time exceeds 2× estimate**: If fixing takes much longer than expected, the assumption is likely wrong.
+
+**When any stop sign appears:**
+- Do not attempt workarounds
+- Do not chain multiple "fixes"
+- Report: "Direction not viable due to [specific constraint]"
+- Go back to Rule 4 (challenge the fundamental assumption)
 
 **Never** silently pivot to a new direction.
 
@@ -104,27 +122,6 @@ Before writing any optimization code, **must** verify the architectural feasibil
 - Identify all intermediate buffers and their purposes
 - Understand why temporary buffers exist — they exist for a reason
 
-**Example from VVC SAO failure:**
-- Wrong assumption: "Boundary data is in frame->data, can reference directly"
-- Reality: SAO operates on temp buffer `lc->sao.buffer`; frame->data contains unfiltered reconstruction values
-- Had this been verified first (gdb print / code walkthrough), the wrong direction would have been caught immediately
-
 **Never start coding without completing this verification.**
 
----
 
-## Rule 10: Stop Signs — When to Halt and Reassess
-
-**Must stop and report immediately when:**
-
-1. **Data source mismatch**: Assumed location ≠ actual location
-2. **Timing mismatch**: Data not available when needed
-3. **Hidden intermediate layer discovered**: Temp buffers, conversion layers that cannot be bypassed
-4. **Debugging time exceeds 2× estimate**: If fixing takes much longer than expected, the assumption is likely wrong
-5. **Architecture change required**: If optimization requires changing the architecture (not just the implementation)
-
-**When any stop sign appears:**
-- Do not attempt workarounds
-- Do not chain multiple "fixes"
-- Report: "Direction not viable due to [specific architectural constraint]"
-- Go back to Rule 4 (challenge the fundamental assumption)
