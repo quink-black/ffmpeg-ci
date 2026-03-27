@@ -1,7 +1,7 @@
 # VVC Decoder Optimization Guide
 
 **Based on:** 10-bit performance analysis (500 frames per test)  
-**Platforms:** ARM64 (Raspberry Pi 5) and x86_64 (black2)
+**Platforms:** ARM64 (Pi5, Android), x86_64 (black2)
 
 ---
 
@@ -11,15 +11,18 @@
 
 10-bit VVC decoding shows significantly different characteristics than 8-bit:
 - **2x memory bandwidth** requirement
-- **Higher ALF filter** overhead on ARM
-- **Deblocking** remains unoptimized (C code) on both platforms
+- **ALF filter** is #1 hotspot on fast ARM (Android: 18%)
+- **Deblocking** remains unoptimized (C code) on all platforms
 
 ### Performance Summary
 
 | Platform | 10-bit 1080p | Memory % | Sync % | Critical Bottleneck |
 |----------|--------------|----------|--------|---------------------|
-| ARM (Pi5, 4T) | 32-60 fps | 17.9% | 1.0% | memcpy + ALF |
-| x86 (8T) | 214-373 fps | 11.8% | 2.5% | deblocking (C) |
+| ARM (Pi5, 4T) | 32 fps | 17.9% | 1.0% | memcpy + ALF |
+| **Android (4T)** | **70 fps** | **9.1%** | **1.5%** | **ALF cache (18%)** |
+| x86 (8T) | 214 fps | 11.8% | 2.5% | deblocking (C) |
+
+**Key Insight:** Android is 2.2x faster than Pi5 due to better memory subsystem, but this reveals ALF as the #1 bottleneck.
 
 ---
 
@@ -27,22 +30,22 @@
 
 ### Architecture-Level Bottlenecks
 
-| Bottleneck | ARM Impact | x86 Impact | Notes |
-|------------|------------|------------|-------|
-| **Memory Operations** | 17.9% | 11.8% | ARM lacks AVX2; 10-bit amplifies issue |
-| **ALF Filter** | 12.0% | 4.0% | NEON less efficient than AVX2 |
-| **Deblocking** | 12.0% | 11.0% | Both use C code for 10-bit |
-| **Task Scheduling** | 1.0% | 2.5% | Scales with thread count |
-| **Entropy Coding** | 3.4% | 5.8% | x86 shows higher parsing overhead |
+| Bottleneck | Pi5 | Android | x86 | Notes |
+|------------|-----|---------|-----|-------|
+| **Memory Operations** | 17.9% | **9.1%** | 11.8% | Android SoC has best memory subsystem |
+| **ALF Filter** | 12.0% | **18.0%** | 4.0% | Revealed at higher performance |
+| **Deblocking** | 12.0% | 11.0% | 11.0% | All need SIMD for 10-bit |
+| **Task Scheduling** | 1.0% | 1.5% | 2.5% | Scales with thread count |
+| **Entropy Coding** | 3.4% | 4.0% | 5.8% | x86 shows higher parsing overhead |
 
 ### Hot Function Comparison (city_crowd 10-bit)
 
-| Function | ARM % | x86 % | Gap | Root Cause |
-|----------|-------|-------|-----|------------|
-| memcpy/memset | 17.9% | 11.8% | **6.1%** | AVX2 vs generic ARM |
-| ALF filter | 12.0% | 4.0% | **8.0%** | NEON optimization gap |
-| Deblocking | 12.0% | 11.0% | 1.0% | Both C code |
-| Motion Comp | 8.5% | 5.0% | 3.5% | NEON coverage incomplete |
+| Function | Pi5 % | Android % | x86 % | Key Insight |
+|----------|-------|-----------|-------|-------------|
+| memcpy/memset | 17.9% | **9.1%** | 11.8% | Android uses SIMD-accelerated libc |
+| ALF filter | 12.0% | **18.0%** | 4.0% | **Cache issue on fast ARM** |
+| Deblocking | 12.0% | 11.0% | 11.0% | Consistent C code overhead |
+| Motion Comp | 8.5% | 10.0% | 5.0% | Variable NEON coverage |
 
 ---
 
@@ -85,13 +88,14 @@ void sao_filter_ctu(SAOContext *sao, RingBuffer *rb) {
 
 ---
 
-#### 2. NEON ALF Filter Optimization (ARM: +15%)
+#### 2. ALF Filter Cache Optimization (ARM: +15%, Android: +20%)
 
-**Problem:** ALF is #2 hotspot on ARM (12.0%) despite NEON implementation
+**Problem:** ALF is #2 hotspot on Pi5 (12.0%), **#1 on Android (18.0%)** despite NEON implementation
 
 **Root Cause:**
-- Memory access patterns not cache-optimal
-- Classification overhead (1.65%)
+- Memory access patterns not cache-optimal (revealed at higher performance)
+- Classification overhead (2.8% on Android)
+- Row-major access causes cache misses
 
 **Solution:**
 ```c
@@ -268,30 +272,81 @@ void clear_ctu_buffer_neon(uint8_t *buf, size_t size) {
 
 ---
 
+### Android-Specific Optimizations
+
+#### 8. big.LITTLE Task Affinity (Android: +10%)
+
+**Problem:** Critical tasks may run on LITTLE cores
+
+**Solution:** Bind ALF/deblocking to big cores
+```c
+// Bind compute-intensive tasks to big cores
+void compute_intensive_task(VVCTask *task) {
+    #ifdef __ANDROID__
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    // Big cores typically CPU 4-7 on Pixel Tensor G3
+    for (int i = 4; i < 8; i++) {
+        CPU_SET(i, &cpuset);
+    }
+    sched_setaffinity(0, sizeof(cpuset), &cpuset);
+    #endif
+    
+    alf_filter_luma(...);
+}
+```
+
+**Effort:** Low (2 days)  
+**Risk:** Low
+
+#### 9. Thermal-Aware Threading
+
+**Problem:** Sustained decode triggers thermal throttling
+
+**Solution:** Dynamic thread count based on temperature
+```c
+void adjust_thread_count(VVCContext *s) {
+    float temp = get_thermal_temp();
+    if (temp > 75.0f) {
+        s->nb_threads = max(2, s->nb_threads - 1);
+    }
+}
+```
+
+**Effort:** Medium (3 days)  
+**Risk:** Low
+
+---
+
 ## Implementation Roadmap
 
 ### Phase 1: Quick Wins (Week 1-2)
 1. Batch task submission
-2. Optimized buffer clearing (ARM)
+2. big.LITTLE affinity (Android)
+3. Optimized buffer clearing (ARM)
 
-**Expected Gain:** ARM: +8%, x86: +5%
+**Expected Gain:** Pi5: +8%, Android: +13%, x86: +5%
 
 ### Phase 2: SIMD Optimization (Week 3-5)
-3. AVX2 deblocking filter (10-bit)
-4. NEON luma deblocking (10-bit)
-5. NEON ALF optimization
+4. AVX2 deblocking filter (10-bit)
+5. NEON luma deblocking (10-bit)
+6. ALF cache optimization (tile-based)
 
-**Expected Gain:** ARM: +25%, x86: +15%
+**Expected Gain:** Pi5: +25%, Android: +30%, x86: +15%
 
 ### Phase 3: Architecture (Week 6-8)
-6. Zero-copy pipeline
-7. Work-stealing task queues
+7. Zero-copy pipeline
+8. Work-stealing task queues
+9. Thermal-aware threading (Android)
 
-**Expected Gain:** ARM: +20%, x86: +10%
+**Expected Gain:** Pi5: +20%, Android: +15%, x86: +10%
 
 ### Total Expected Speedup
-- **ARM (Pi5):** 32 fps → 55-60 fps (**1.7x**)
-- **x86 (8T):** 214 fps → 300-340 fps (**1.5x**)
+| Platform | Current | Optimized | Speedup |
+|----------|---------|-----------|---------|
+| **Pi5 (4T)** | 32 fps | 55-60 fps | **1.7x** |
+| **Android (4T)** | 70 fps | 110-120 fps | **1.6x** |
+| **x86 (8T)** | 214 fps | 300-340 fps | **1.5x** |
 
 ---
 
