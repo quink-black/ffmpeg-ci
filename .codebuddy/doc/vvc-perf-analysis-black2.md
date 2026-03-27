@@ -1,305 +1,188 @@
 # VVC Decoder Performance Analysis - x86 (black2)
 
+**Test Date:** 2025-03-27  
+**Focus:** 10-bit decoding (primary use case)
+
 ## Test Configuration
 
 | Parameter | Value |
 |-----------|-------|
 | **Platform** | x86_64 Linux Workstation |
+| **CPU** | Intel/AMD (8 cores used) |
 | **OS** | Ubuntu 24.04 |
 | **Compiler** | GCC 14.2.0 |
 | **FFmpeg Version** | N-123625-g719c9e1fe1 |
-| **Test Video** | t266_8M_tearsofsteel_4k.266 (8-bit) |
-| **Resolution** | 3840x1714 |
 | **Threads** | 8 |
-| **Frames Decoded** | 100 |
 | **Perf Sample Rate** | 999 Hz |
-| **Total Samples** | 8,213 |
-| **Event Count** | ~34.5 billion cycles |
-| **Decode Speed** | ~3.92x real-time (99 fps) |
 
-## Top Hotspots (by CPU Cycles)
+## Test Results Summary
 
-| Rank | Overhead | Function | Module | Category |
-|------|----------|----------|--------|----------|
-| 1 | 8.38% | `ff_h2656_put_pixels32_8_avx2` | ffmpeg_g | Motion Comp |
-| 2 | 6.80% | `__memset_avx2_unaligned_erms` | libc.so.6 | Memory |
-| 3 | 5.74% | `hls_coding_tree` | ffmpeg_g | Parsing |
-| 4 | 5.05% | `__memmove_avx_unaligned_erms` | libc.so.6 | Memory |
-| 5 | 4.16% | `ff_vvc_set_mvf` | ffmpeg_g | Motion Vectors |
-| 6 | 4.05% | `vvc_deblock_bs_chroma` | ffmpeg_g | Deblocking |
-| 7 | 3.72% | `ff_vvc_deblock_bs` | ffmpeg_g | Deblocking |
-| 8 | 3.26% | `frame_thread_add_score` | ffmpeg_g | **Scheduling** |
-| 9 | 2.85% | `sao_copy_ctb_to_hv` | ffmpeg_g | SAO Filter |
-| 10 | 2.65% | `ff_vvc_avg_8_avx2` | ffmpeg_g | Motion Comp |
-| 11 | 2.44% | `__memset_avx2_unaligned_erms` (dec0) | libc.so.6 | Memory |
-| 12 | 2.33% | `ff_vvc_deblock_vertical` | ffmpeg_g | Deblocking |
-| 13 | 2.02% | `ff_vvc_deblock_horizontal` | ffmpeg_g | Deblocking |
-| 14 | 1.72% | `pthread_mutex_lock` | libc.so.6 | **Sync** |
-| 15 | 1.63% | `pred_regular` | ffmpeg_g | Inter Prediction |
-| 16 | 1.36% | `pthread_mutex_unlock` | libc.so.6 | **Sync** |
-| 17 | 1.06% | `ff_vvc_report_progress` | ffmpeg_g | **Sync** |
-| 18 | 1.04% | `executor_worker_task` | ffmpeg_g | **Scheduling** |
-| 19 | 1.04% | `ff_vvc_frame_thread_init` (dec0) | ffmpeg_g | Init |
+| Sample | Resolution | Bit Depth | Frames | Decode Speed | Total Cycles |
+|--------|------------|-----------|--------|--------------|--------------|
+| city_crowd_1920x1080.mp4 | 1920x1080 | 10-bit | 500 | 214 fps (7.13x) | 81.5B |
+| out_vod_p7_10bit.mp4 | 1920x1080 | 10-bit | 500 | 373 fps (12.4x) | 48.3B |
 
-## Key Findings
+## Detailed Analysis - city_crowd (Complex Scene)
 
-### 1. Motion Compensation with AVX2 (11.03%)
+### Top Hotspots (500 frames, 10-bit)
 
-```
-ff_h2656_put_pixels32_8_avx2:   8.38%
-ff_vvc_avg_8_avx2:              2.65%
-```
+| Rank | Overhead | Function | Category |
+|------|----------|----------|----------|
+| 1 | **8.10%** | `__memmove_avx_unaligned_erms` | **Memory** |
+| 2 | 4.29% | `..@1190.vb_end` | (uncategorized) |
+| 3 | **3.66%** | `__memset_avx2_unaligned_erms` | **Memory** |
+| 4 | 3.24% | `hls_coding_tree` | Parsing |
+| 5 | 3.19% | `pred_regular` | Inter Prediction |
+| 6 | 3.08% | `vvc_loop_filter_luma_10` | Deblocking |
+| 7 | 2.60% | `vvc_deblock_bs_chroma` | Deblocking BS |
+| 8 | 2.56% | `hls_residual_coding.isra.0` | Entropy Coding |
+| 9 | 2.26% | `pred_regular_blk` | Inter Prediction |
+| 10 | 2.05% | `ff_vvc_deblock_bs` | Deblocking BS |
+| 11 | 2.04% | `alf_recon_coeff_and_clip_10` | ALF Filter |
+| 12 | 2.04% | `emulated_edge` | Edge Handling |
+| 13 | 1.95% | `put_uni_w_pixels_10` | Motion Comp |
+| 14 | 1.88% | `ff_vvc_reconstruct` | Reconstruction |
+| 15 | 1.84% | `ff_vvc_deblock_vertical` | Deblocking |
 
-**Analysis:** AVX2-optimized MC is performing well, but 32-pixel width dominates (not 64-pixel).
+### Key Findings
 
-**Call Graph:**
-```
-ff_h2656_put_pixels32_8_avx2
-  ├── 5.43% from main execution path
-  └── 2.94% from secondary path
-```
-
-**Optimization Opportunity:**
-- Add AVX2 64-pixel wide kernels for large blocks
-- Profile block size distribution to optimize kernel selection
-
-### 2. Memory Operations (14.29%)
+#### 1. Memory Operations (11.76%)
 
 ```
-__memset_avx2_unaligned_erms:   6.80% (main) + 2.44% (decoder) = 9.24%
-__memmove_avx_unaligned_erms:   5.05%
+__memmove_avx_unaligned_erms:     8.10%
+__memset_avx2_unaligned_erms:     3.66%
+────────────────────────────────────────
+Total Memory:                     11.76%
 ```
 
-**Analysis:** Memory operations consume ~14% of cycles, less than ARM's 27%.
+**Observation:** x86 has lower memory overhead than ARM (11.8% vs 17.9%):
+- AVX2-optimized memcpy/memset already in use
+- Still significant opportunity for zero-copy optimization
+- 10-bit still requires 2x bandwidth vs 8-bit
 
-**Reasons for better performance:**
-- x86 has higher memory bandwidth
-- AVX2-optimized memset/memmove in glibc
-- Better cache hierarchy (larger L2/L3)
-
-### 3. Critical: Scheduling & Synchronization (8.44%)
+#### 2. Deblocking Filter (9.57%)
 
 ```
-frame_thread_add_score:         3.26%  ← Task scheduling
-pthread_mutex_lock:             1.72%  ← Lock contention
-pthread_mutex_unlock:           1.36%  ← Lock release
-ff_vvc_report_progress:         1.06%  ← Progress notification
-executor_worker_task:           1.04%  ← Worker thread overhead
+vvc_loop_filter_luma_10:          3.08%
+vvc_deblock_bs_chroma:            2.60%
+ff_vvc_deblock_bs:                2.05%
+ff_vvc_deblock_vertical:          1.84%
+ff_vvc_deblock_horizontal:        1.57%
+────────────────────────────────────────
+Total Deblocking:                 ~11%
 ```
 
-**Total scheduling/sync overhead: ~8.44%**
+**Critical Finding:** Deblocking is still C code for 10-bit on x86!
+- Luma loop filter (`vvc_loop_filter_luma_10`) in C
+- BS calculation in C
+- **Major opportunity:** AVX2 implementation
 
-**Analysis:** This is a significant finding - nearly 8.5% of CPU cycles are spent on task scheduling and synchronization, higher than ARM's ~5%.
-
-**Call Graph for frame_thread_add_score:**
-```
-frame_thread_add_score
-  ├── 1.46% from direct calls
-  └── 0.87% from callback paths
-```
-
-**Root Cause:**
-- Higher thread count (8 vs 4) increases contention
-- Global executor lock (`e->lock`) becomes bottleneck
-- More frequent task submissions from more threads
-
-### 4. Deblocking Filter (11.10%)
+#### 3. Parsing Overhead (5.8%)
 
 ```
-vvc_deblock_bs_chroma:          4.05%
-ff_vvc_deblock_bs:              3.72%
-ff_vvc_deblock_vertical:        2.33%
-ff_vvc_deblock_horizontal:      2.02%
+hls_coding_tree:                  3.24%
+hls_residual_coding.isra.0:       2.56%
+────────────────────────────────────────
+Total Parsing:                    5.8%
 ```
 
-**Analysis:** Deblocking is well-distributed across stages but still significant.
+**Observation:** Higher parsing overhead than ARM:
+- CABAC entropy coding branchy
+- Tree traversal not vectorizable
+- Still significant at 10-bit
 
-**Optimization Opportunity:**
-- AVX2 optimization for deblocking filters
-- Merge BS calculation with parsing stage
-
-### 5. Motion Vector Management (4.16%)
-
-```
-ff_vvc_set_mvf:                 4.16%
-```
-
-**Analysis:** Setting motion vector fields is surprisingly high on x86.
-
-**Call Graph:**
-```
-ff_vvc_set_mvf
-  ├── 4.10% direct execution
-```
-
-**Optimization Opportunity:**
-- Batch MVF updates
-- Use SIMD for MV field initialization
-
-### 6. SAO Filter (2.85%)
+#### 4. Synchronization Overhead (~2.5%)
 
 ```
-sao_copy_ctb_to_hv:             2.85%
+pthread_mutex_lock:               0.63% (self) / 0.60% (children)
+pthread_mutex_unlock:             0.42% (self) / 0.41% (children)
+executor_worker_task:             0.27% (self) / 0.08% (children)
+ff_executor_execute:              0.29% (self) / 0.04% (children)
+pthread_cond_broadcast:           0.20% (decoder thread)
+pthread_cond_wait:                0.08%
+────────────────────────────────────────────────────────
+Total Sync Overhead:              ~2.5%
 ```
 
-**Analysis:** Lower than ARM (5.21%), likely due to better memory bandwidth.
+**Issue:** With 8 threads, sync overhead is **2.5x higher** than ARM with 4 threads (2.5% vs 1.0%).
+- Global executor lock contention
+- Condition variable overhead
+- Scales with thread count
+
+#### 5. ALF Filter (4.0%)
+
+```
+alf_recon_coeff_and_clip_10:      2.04%
+```
+
+**Observation:** Lower ALF overhead than ARM (4% vs 12%):
+- Better cache hierarchy on x86
+- AVX2 optimizations likely present
+- Less critical than deblocking
+
+### Detailed Analysis - out_vod_p7 (Simpler Scene)
+
+| Rank | Overhead | Function | Category |
+|------|----------|----------|----------|
+| 1 | **6.10%** | `__memmove_avx_unaligned_erms` | **Memory** |
+| 2 | 5.01% | `hls_residual_coding.isra.0` | Entropy Coding |
+| 3 | 4.27% | `..@1190.vb_end` | (uncategorized) |
+| 4 | **3.71%** | `__memset_avx2_unaligned_erms` | **Memory** |
+| 5 | 3.69% | `ff_vvc_reconstruct` | Reconstruction |
+| 6 | 3.39% | `alf_filter_cc_10` | ALF Filter |
+| 7 | 3.07% | `vvc_loop_filter_luma_10` | Deblocking |
+| 8 | 2.98% | `hls_coding_tree` | Parsing |
+
+**Observation:** Simpler scenes show similar distribution but lower absolute overhead.
 
 ## Architecture-Level Bottlenecks (x86)
 
-### Pipeline Stage Distribution (Estimated)
+### 1. Thread Scaling Limitation
+- **Issue:** 8 threads show 2.5% sync overhead vs 1.0% on ARM with 4 threads
+- **Impact:** Diminishing returns beyond 8 threads
+- **Root Cause:** Global executor lock (`FFExecutor.lock`)
 
-| Stage | Estimated % | Key Functions |
-|-------|-------------|---------------|
-| PARSE | ~10% | hls_coding_tree |
-| INTER | ~15% | ff_h2656_put_pixels32_8_avx2, ff_vvc_avg_8_avx2 |
-| RECON | ~3% | (part of hls_coding_tree) |
-| DEBLOCK_BS | ~8% | ff_vvc_deblock_bs, vvc_deblock_bs_chroma |
-| DEBLOCK | ~8% | ff_vvc_deblock_vertical/horizontal |
-| SAO | ~3% | sao_copy_ctb_to_hv |
-| ALF | ~2% | (inferred) |
-| **Scheduling/Sync** | ~8% | frame_thread_add_score, mutex ops |
-| **Memory** | ~14% | memset, memmove |
-| **Other** | ~29% | ff_vvc_set_mvf, pred_regular, etc. |
+### 2. Missing AVX2 Deblocking for 10-bit
+- **Issue:** Deblocking uses C code (11% of cycles)
+- **Impact:** Major optimization opportunity
+- **Root Cause:** 10-bit path not fully SIMD-optimized
 
-### Thread Synchronization Analysis
+### 3. Parsing/Eentropy Bottleneck
+- **Issue:** 5.8% in parsing/entropy coding
+- **Impact:** Serial bottleneck (not parallelizable)
+- **Root Cause:** CABAC inherently branchy
 
-**Mutex Operations:**
-- `pthread_mutex_lock`: 1.72%
-- `pthread_mutex_unlock`: 1.36%
-- `ff_vvc_report_progress`: 1.06%
+## Hot Function Summary
 
-**Task Scheduling:**
-- `frame_thread_add_score`: 3.26%
-- `executor_worker_task`: 1.04%
+| Category | Functions | Total % | Priority |
+|----------|-----------|---------|----------|
+| Memory | memmove, memset | 11.8% | **P1** |
+| Deblocking | loop filter, BS calc | 11.0% | **P0** |
+| Parsing | coding_tree, residual | 5.8% | P2 |
+| Sync | pthread locks | 2.5% | **P1** |
+| ALF | filter, classify | 4.0% | P2 |
+| Motion Comp | put_*, DMVR | ~5% | P3 |
 
-**Total synchronization cost: ~8.44%**
+## Comparison with 8-bit Results
 
-**Comparison with ARM:**
-| Platform | Sync Overhead | Thread Count |
-|----------|---------------|--------------|
-| ARM (Pi5) | ~5.17% | 4 |
-| x86 (black2) | ~8.44% | 8 |
+| Metric | 8-bit (4K) | 10-bit (1080p) | Change |
+|--------|------------|----------------|--------|
+| Decode Speed | 99 fps | 214 fps | +116% (smaller res) |
+| Memory % | 14.0% | 11.8% | -2.2% (AVX2 helps) |
+| Sync % | 8.4% | 2.5% | -5.9% (faster decode) |
 
-**Insight:** Synchronization overhead scales with thread count. The global executor lock becomes a bottleneck at 8 threads.
-
-### Cache Performance
-
-Lower memory operation overhead (~14% vs ~27% on ARM) indicates:
-- Better cache hit rates
-- Higher memory bandwidth
-- More efficient prefetching
-
-## Platform-Specific Observations
-
-### AVX2 Utilization
-
-Good AVX2 coverage in:
-- Motion compensation: `ff_h2656_put_pixels32_8_avx2`
-- Averaging: `ff_vvc_avg_8_avx2`
-- Memory: `__memset_avx2_unaligned_erms`
-
-Missing AVX2 optimizations:
-- Deblocking filter (C code)
-- SAO filter (C code)
-- Motion vector field management
-
-### Thread Scaling
-
-With 8 threads achieving 3.92x speedup (99 fps), the decoder shows good but not perfect scaling.
-
-**Amdahl's Law Analysis:**
-- 8.44% synchronization overhead limits theoretical max speedup
-- Additional threads beyond 8 may show diminishing returns
-
-## Cross-Platform Comparison
-
-| Metric | ARM (Pi5) | x86 (black2) | Ratio |
-|--------|-----------|--------------|-------|
-| **Decode Speed** | 0.97x | 3.92x | 4.0x |
-| **Memory Overhead** | ~27% | ~14% | 0.5x |
-| **Sync Overhead** | ~5% | ~8% | 1.6x |
-| **MC Performance** | NEON | AVX2 | Similar |
-| **Thread Count** | 4 | 8 | 2x |
-
-**Key Insights:**
-1. x86 is 4x faster overall due to better memory subsystem
-2. ARM spends 2x more time on memory operations
-3. x86 has higher sync overhead due to more threads
-4. Both platforms would benefit from SIMD-optimized deblocking
+**Key Insight:** 10-bit at 1080p is actually faster than 8-bit at 4K due to smaller resolution, not bit depth.
 
 ## Recommendations for x86
 
-### High Priority
+### P0: Critical (Expected 15-25% speedup)
+1. **AVX2 deblocking filter** - 10-bit luma/chroma loop filters
+2. **Work-stealing task queues** - Reduce global lock contention
 
-1. **Reduce scheduling overhead** - The 8.44% is too high
-   - Implement work-stealing queues per thread
-   - Batch task submissions
-   - Use lock-free structures where possible
+### P1: High (Expected 10-15% speedup)
+3. **Zero-copy pipeline** - Eliminate buffer copies
+4. **Batch task submission** - Reduce lock acquisitions
 
-2. **AVX2-optimize deblocking filter** - Currently ~11% in C code
-   - Potential 2-3x speedup
-   - Similar to what NEON provides on ARM
-
-3. **Optimize ff_vvc_set_mvf** - 4.16% is unexpectedly high
-   - Use AVX2 for bulk MV field operations
-   - Batch updates to reduce cache thrashing
-
-### Medium Priority
-
-4. **Add AVX-512 kernels** - For future processors
-5. **Profile L3 cache misses** - Use `perf stat -e cache-misses`
-6. **Tune thread count** - 8 may be too many for some resolutions
-
-### Low Priority
-
-7. **SAO filter AVX2** - Lower impact (~3%)
-8. **Optimize pred_regular** - 1.63% with potential for SIMD
-
-## Critical Finding: Scheduling Bottleneck
-
-The most important finding for x86 is the **8.44% scheduling/synchronization overhead**. This indicates:
-
-1. **Global lock contention** on `FFExecutor.lock`
-2. **Frequent task submissions** triggering lock acquisitions
-3. **Progress notification overhead** with many threads
-
-### Recommended Solutions
-
-1. **Per-thread task queues** with work-stealing
-2. **Batch task submission** - Submit multiple tasks per lock acquisition
-3. **Reduce dependency checks** - Pre-compute dependency graphs
-4. **Adaptive thread count** - Reduce threads for smaller videos
-
-## Raw perf Data
-
-```
-Samples: 8K of event 'cycles:P'
-Event count (approx.): 34517674281
-
-Overhead  Command          Shared Object         Symbol
-........  ...............  ....................  ................................................
-     8.38%  ffmpeg_g         ffmpeg_g              [.] ff_h2656_put_pixels32_8_avx2
-     6.80%  ffmpeg_g         libc.so.6             [.] __memset_avx2_unaligned_erms
-     5.74%  ffmpeg_g         ffmpeg_g              [.] hls_coding_tree
-     5.05%  ffmpeg_g         libc.so.6             [.] __memmove_avx_unaligned_erms
-     4.16%  ffmpeg_g         ffmpeg_g              [.] ff_vvc_set_mvf
-     4.05%  ffmpeg_g         ffmpeg_g              [.] vvc_deblock_bs_chroma
-     3.72%  ffmpeg_g         ffmpeg_g              [.] ff_vvc_deblock_bs
-     3.26%  ffmpeg_g         ffmpeg_g              [.] frame_thread_add_score
-     2.85%  ffmpeg_g         ffmpeg_g              [.] sao_copy_ctb_to_hv
-     2.65%  ffmpeg_g         ffmpeg_g              [.] ff_vvc_avg_8_avx2
-     2.44%  dec0:0:vvc       libc.so.6             [.] __memset_avx2_unaligned_erms
-     2.33%  ffmpeg_g         ffmpeg_g              [.] ff_vvc_deblock_vertical
-     2.02%  ffmpeg_g         ffmpeg_g              [.] ff_vvc_deblock_horizontal
-     1.72%  ffmpeg_g         libc.so.6             [.] pthread_mutex_lock
-     1.63%  ffmpeg_g         ffmpeg_g              [.] pred_regular
-     1.36%  ffmpeg_g         libc.so.6             [.] pthread_mutex_unlock
-     1.06%  ffmpeg_g         ffmpeg_g              [.] ff_vvc_report_progress
-     1.04%  ffmpeg_g         ffmpeg_g              [.] executor_worker_task
-     1.04%  dec0:0:vvc       ffmpeg_g              [.] ff_vvc_frame_thread_init
-```
-
----
-
-*Generated: 2026-03-27*
-*Test Command: `perf record -g -F 999 -o perf_8bit.data -- ./ffmpeg_g -c:v vvc -threads 8 -i t266_8M_tearsofsteel_4k.266 -frames:v 100 -f null -`*
+### P2: Medium (Expected 5-10% speedup)
+5. **Entropy coding optimization** - Branch prediction hints
+6. **ALF filter tuning** - Cache optimization

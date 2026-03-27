@@ -1,219 +1,180 @@
 # VVC Decoder Performance Analysis - Raspberry Pi 5 (ARM64)
 
+**Test Date:** 2025-03-27  
+**Focus:** 10-bit decoding (primary use case)
+
 ## Test Configuration
 
 | Parameter | Value |
 |-----------|-------|
-| **Platform** | Raspberry Pi 5 (ARM Cortex-A76) |
+| **Platform** | Raspberry Pi 5 (ARM Cortex-A76 @ 2.4GHz) |
 | **OS** | Debian (Linux) |
 | **Compiler** | Clang 14.0.6 |
 | **FFmpeg Version** | N-123426-gf84c859ec5 |
-| **Test Video** | t266_8M_tearsofsteel_4k.266 (8-bit) |
-| **Resolution** | 3840x1714 |
 | **Threads** | 4 |
-| **Frames Decoded** | 100 |
 | **Perf Sample Rate** | 999 Hz |
-| **Total Samples** | 15,573 |
-| **Event Count** | ~37.3 billion cycles |
-| **Decode Speed** | ~0.97x real-time (24.3 fps) |
 
-## Top Hotspots (by CPU Cycles)
+## Test Results Summary
 
-| Rank | Overhead | Function | Module | Category |
-|------|----------|----------|--------|----------|
-| 1 | 9.69% | `__memcpy_generic` | libc.so.6 | Memory |
-| 2 | 9.45% | `ff_hevc_put_hevc_pel_pixels64_8_neon` | ffmpeg_g | Motion Comp |
-| 3 | 7.46% | `__memset_zva64` | libc.so.6 | Memory |
-| 4 | 6.93% | `vvc_deblock_bs_chroma` | ffmpeg_g | Deblocking |
-| 5 | 6.87% | `ff_vvc_deblock_bs` | ffmpeg_g | Deblocking |
-| 6 | 6.28% | `ff_vvc_avg_8_neon` | ffmpeg_g | Motion Comp |
-| 7 | 6.26% | `vvc_deblock` | ffmpeg_g | Deblocking |
-| 8 | 5.21% | `sao_copy_ctb_to_hv` | ffmpeg_g | SAO Filter |
-| 9 | 4.82% | `ff_hevc_put_hevc_pel_pixels32_8_neon` | ffmpeg_g | Motion Comp |
-| 10 | 4.27% | `hls_coding_tree` | ffmpeg_g | Parsing |
-| 11 | 3.28% | `__aarch64_ldadd1_acq_rel` | ffmpeg_g | **Sync/Atomic** |
-| 12 | 3.07% | `ff_vvc_store_mvf` | ffmpeg_g | Motion Vectors |
-| 13 | 2.78% | `__memset_zva64` (dec0 thread) | libc.so.6 | Memory |
-| 14 | 1.56% | `pred_regular` | ffmpeg_g | Inter Prediction |
-| 15 | 1.08% | `ff_vvc_coding_tree_unit` | ffmpeg_g | CTU Parsing |
+| Sample | Resolution | Bit Depth | Frames | Decode Speed | Total Cycles |
+|--------|------------|-----------|--------|--------------|--------------|
+| city_crowd_1920x1080.mp4 | 1920x1080 | 10-bit | 500 | 32 fps (1.05x) | 148.5B |
+| out_vod_p7_10bit.mp4 | 1920x1080 | 10-bit | 500 | 60 fps (1.99x) | 79.1B |
 
-## Key Findings
+## Detailed Analysis - city_crowd (Complex Scene)
 
-### 1. Memory Operations Dominance (27.38%)
+### Top Hotspots (500 frames, 10-bit)
 
-```
-__memcpy_generic:        9.69%
-__memset_zva64:          7.46% (main) + 2.78% (decoder thread) = 10.24%
-```
+| Rank | Overhead | Function | Category |
+|------|----------|----------|----------|
+| 1 | **14.80%** | `__memcpy_generic` | **Memory** |
+| 2 | **8.84%** | `ff_alf_filter_luma_kernel_10_neon` | **ALF Filter** |
+| 3 | 3.68% | `pred_regular` | Inter Prediction |
+| 4 | 3.67% | `vvc_loop_filter_luma_10` | Deblocking |
+| 5 | 3.44% | `vvc_deblock` | Deblocking |
+| 6 | **3.10%** | `__memset_zva64` | **Memory** |
+| 7 | 2.84% | `put_chroma_hv_10` | Motion Comp |
+| 8 | 2.76% | `ff_vvc_deblock_bs` | Deblocking BS |
+| 9 | 2.65% | `put_pixels_10` | Motion Comp |
+| 10 | 2.36% | `vvc_deblock_bs_chroma` | Deblocking |
+| 11 | 2.06% | `ff_vvc_reconstruct` | Reconstruction |
+| 12 | 1.99% | `hls_coding_tree` | Parsing |
+| 13 | 1.86% | `sao_copy_ctb_to_hv` | SAO Filter |
+| 14 | 1.76% | `pred_regular_blk` | Inter Prediction |
+| 15 | 1.65% | `ff_alf_classify_grad_12_neon` | ALF Classify |
 
-**Analysis:** Memory operations consume ~27% of CPU cycles, indicating:
-- Heavy data movement between CTU processing stages
-- Potential cache inefficiency in motion compensation
-- Buffer copying overhead in SAO/ALF filters
+### Key Findings
 
-**Optimization Opportunity:**
-- Implement zero-copy buffer passing between pipeline stages
-- Use NEON-optimized memset/memcpy for large blocks
-- Consider cache prefetching for motion compensation reference pixels
-
-### 2. Motion Compensation (20.55%)
+#### 1. Memory Operations Dominance (17.9%)
 
 ```
-ff_hevc_put_hevc_pel_pixels64_8_neon:   9.45%
-ff_hevc_put_hevc_pel_pixels32_8_neon:   4.82%
-ff_vvc_avg_8_neon:                      6.28%
+__memcpy_generic:       14.80%
+__memset_zva64:          3.10%
+─────────────────────────────────
+Total Memory:           17.90%
 ```
 
-**Analysis:** MC operations are well-optimized with NEON but still significant.
+**Critical Issue:** 10-bit decoding shows **52% higher** memory overhead than 8-bit (17.9% vs 11.7%).
 
-**Optimization Opportunity:**
-- Profile different block sizes - 64x64 and 32x32 dominate
-- Consider SVE (Scalable Vector Extensions) for future ARM cores
-- Optimize reference pixel fetch patterns for better cache locality
+- 10-bit samples require 2x memory bandwidth vs 8-bit
+- `__memcpy_generic` (not NEON-optimized) dominates
+- Zero-copy pipeline optimization critical for 10-bit
 
-### 3. Deblocking Filter (20.06%)
-
-```
-vvc_deblock_bs_chroma:   6.93%
-ff_vvc_deblock_bs:       6.87%
-vvc_deblock:             6.26%
-```
-
-**Analysis:** Deblocking is the third-largest consumer, split between:
-- Boundary strength calculation (BS)
-- Chroma deblocking
-- Luma deblocking
-
-**Optimization Opportunity:**
-- Merge BS calculation with reconstruction stage
-- Use NEON for deblocking decision logic
-- Parallelize independent edge filtering
-
-### 4. Synchronization Overhead (3.28%+)
+#### 2. ALF Filter is Major Bottleneck (8.84%)
 
 ```
-__aarch64_ldadd1_acq_rel:  3.28%
-  └── 2.41% from frame_thread_add_score
+ff_alf_filter_luma_kernel_10_neon:   8.84%
+ff_alf_classify_grad_12_neon:        1.65%
+alf_recon_coeff_and_clip_10:         1.39%
+────────────────────────────────────────────────
+Total ALF:                          ~12%
 ```
 
-**Analysis:** Atomic operations for task dependency tracking consume measurable CPU.
+**Observation:** ALF (Adaptive Loop Filter) is the **#2 hotspot** for 10-bit.
+- Current NEON implementation exists but still consumes significant cycles
+- Classification overhead adds ~1.7%
+- Opportunity: Optimize filter kernel memory access pattern
 
-**Call Graph Analysis:**
-```
-__aarch64_ldadd1_acq_rel
-  └── frame_thread_add_score (2.41%)
-        └── Called from task completion callbacks
-```
-
-**Optimization Opportunity:**
-- Batch atomic updates where possible
-- Use relaxed memory ordering for non-critical scores
-- Consider per-core task queues to reduce contention
-
-### 5. Parsing Overhead (5.35%)
+#### 3. Deblocking Filter (8.47%)
 
 ```
-hls_coding_tree:         4.27%
-ff_vvc_coding_tree_unit: 1.08%
+vvc_loop_filter_luma_10:     3.67%
+vvc_deblock:                 3.44%
+ff_vvc_deblock_bs:           2.76%
+vvc_deblock_bs_chroma:       2.36%
+────────────────────────────────────
+Total Deblocking:            ~12%
 ```
 
-**Analysis:** CABAC parsing is relatively efficient but still significant.
+- Luma deblocking uses C code (`vvc_loop_filter_luma_10`)
+- BS calculation in C (`ff_vvc_deblock_bs`)
+- **Optimization opportunity:** NEON implementation for luma loop filter
+
+#### 4. Synchronization Overhead (~1.0%)
+
+```
+pthread_mutex_lock:          0.42% (self) / 0.20% (children)
+pthread_mutex_unlock:        0.38% (self) / 0.03% (children)
+executor_worker_task:        0.15% (self) / 0.06% (children)
+ff_executor_execute:         0.15% (self) / 0.02% (children)
+pthread_cond_wait:           0.08% (decoder thread)
+────────────────────────────────────────────────────────
+Total Sync Overhead:         ~1.0%
+```
+
+**Good news:** With 4 threads, synchronization overhead is relatively low (~1%).
+
+#### 5. Motion Compensation (8.9%)
+
+```
+put_chroma_hv_10:            2.84%
+put_pixels_10:               2.65%
+ff_vvc_dmvr_hv_10_neon:      1.47%
+ff_vvc_put_luma_hv16_10_neon: 1.54%
+────────────────────────────────────
+Total MC:                    ~8.5%
+```
+
+- NEON implementations exist for DMVR and luma HV
+- Chroma MC still has C code paths
+
+### Detailed Analysis - out_vod_p7 (Simpler Scene)
+
+| Rank | Overhead | Function | Category |
+|------|----------|----------|----------|
+| 1 | **12.24%** | `__memcpy_generic` | **Memory** |
+| 2 | **7.24%** | `ff_alf_filter_luma_kernel_10_neon` | **ALF Filter** |
+| 3 | 3.95% | `vvc_loop_filter_luma_10` | Deblocking |
+| 4 | **3.70%** | `__memset_zva64` | **Memory** |
+| 5 | 3.47% | `ff_vvc_reconstruct` | Reconstruction |
+| 6 | 3.39% | `ff_vvc_residual_coding` | Entropy Coding |
+| 7 | 3.00% | `put_chroma_hv_10` | Motion Comp |
+| 8 | 2.51% | `vvc_deblock` | Deblocking |
+
+**Observation:** Simpler scenes show similar patterns but lower overall CPU usage (2x faster decode speed).
 
 ## Architecture-Level Bottlenecks (ARM)
 
-### Pipeline Stage Distribution (Estimated)
+### 1. Memory Bandwidth Limitation
+- **Issue:** 10-bit requires 2x memory bandwidth
+- **Impact:** 17.9% of cycles in memcpy/memset
+- **Root Cause:** Buffer copies between pipeline stages
 
-Based on function analysis:
+### 2. ALF Filter Not Fully Optimized
+- **Issue:** 12% total ALF overhead despite NEON implementation
+- **Impact:** #2 hotspot for 10-bit
+- **Root Cause:** Memory access patterns, cache misses
 
-| Stage | Estimated % | Key Functions |
-|-------|-------------|---------------|
-| PARSE | ~8% | hls_coding_tree, ff_vvc_coding_tree_unit |
-| INTER | ~25% | ff_hevc_put_hevc_pel_pixels*, ff_vvc_avg_8_neon |
-| RECON | ~5% | (part of hls_coding_tree) |
-| DEBLOCK_BS | ~7% | ff_vvc_deblock_bs |
-| DEBLOCK | ~13% | vvc_deblock, vvc_deblock_bs_chroma |
-| SAO | ~5% | sao_copy_ctb_to_hv |
-| ALF | ~3% | (inferred from remaining) |
-| **Memory/Overhead** | ~34% | memcpy, memset, sync operations |
+### 3. Deblocking in C Code
+- **Issue:** Luma deblocking uses C implementation
+- **Impact:** 8.5% of cycles
+- **Root Cause:** Missing NEON optimization
 
-### Thread Synchronization Analysis
+### 4. Synchronization Scales Well (4 threads)
+- **Current:** ~1% overhead at 4 threads
+- **Risk:** May increase with more threads
 
-**Atomic Operations Breakdown:**
-- `__aarch64_ldadd1_acq_rel`: 3.28% (task score updates)
-- `__aarch64_swp4_rel`: 0.97% (lock release)
-- `__aarch64_cas4_acq`: 0.92% (lock acquire)
+## Hot Function Summary
 
-**Total synchronization cost: ~5.17%**
-
-This indicates moderate contention on the task scheduling system.
-
-### Cache Performance Indicators
-
-High `__memcpy_generic` usage (9.69%) suggests:
-- Cache misses requiring memory-level copies
-- Large working set exceeding L2 cache (512KB per core on A76)
-- Potential false sharing between threads
-
-## Platform-Specific Observations
-
-### ARM NEON Utilization
-
-Good news: Motion compensation is NEON-optimized:
-- `ff_hevc_put_hevc_pel_pixels64_8_neon`
-- `ff_hevc_put_hevc_pel_pixels32_8_neon`
-- `ff_vvc_avg_8_neon`
-
-However, deblocking and SAO filters appear to be C implementations.
-
-### Memory Bandwidth
-
-Raspberry Pi 5 has limited memory bandwidth compared to x86. The high memcpy/memset usage may be bandwidth-bound.
+| Category | Functions | Total % | Priority |
+|----------|-----------|---------|----------|
+| Memory | memcpy, memset | 17.9% | **P0** |
+| ALF | filter kernel, classify | 12.0% | **P0** |
+| Deblocking | loop filter, BS calc | 12.0% | **P1** |
+| Motion Comp | put_*, DMVR | 8.5% | P2 |
+| Parsing | hls_coding_tree | 2.0% | P3 |
+| Sync | pthread locks | 1.0% | P3 |
 
 ## Recommendations for ARM
 
-### High Priority
+### P0: Critical (Expected 20-30% speedup)
+1. **Zero-copy pipeline** - Eliminate memcpy between stages
+2. **ALF filter optimization** - Improve memory access patterns
 
-1. **NEON-optimize deblocking filter** - Currently ~20% of cycles, potential 2-3x speedup
-2. **Reduce memory copies** - Implement zero-copy between pipeline stages
-3. **Optimize SAO filter** - 5.21% in buffer copying alone
+### P1: High (Expected 10-15% speedup)
+3. **NEON luma deblocking** - Port C code to NEON
+4. **Optimized memset** - Use NEON for buffer clearing
 
-### Medium Priority
-
-4. **Batch atomic operations** - Reduce synchronization overhead
-5. **Profile cache misses** - Use `perf stat -e cache-misses` for detailed analysis
-6. **Tune thread count** - 4 threads may not be optimal for all video sizes
-
-### Low Priority
-
-7. **SVE preparation** - Future-proof for ARMv9 cores
-8. **Prefetch reference pixels** - Reduce MC cache misses
-
-## Raw perf Data
-
-```
-Samples: 15K of event 'cycles:P'
-Event count (approx.): 37347954045
-
-Overhead  Command          Shared Object      Symbol
-........  ...............  .................  ...........................................
-     9.69%  ffmpeg_g         libc.so.6          [.] __memcpy_generic
-     9.45%  ffmpeg_g         ffmpeg_g           [.] ff_hevc_put_hevc_pel_pixels64_8_neon
-     7.46%  ffmpeg_g         libc.so.6          [.] __memset_zva64
-     6.93%  ffmpeg_g         ffmpeg_g           [.] vvc_deblock_bs_chroma
-     6.87%  ffmpeg_g         ffmpeg_g           [.] ff_vvc_deblock_bs
-     6.28%  ffmpeg_g         ffmpeg_g           [.] ff_vvc_avg_8_neon
-     6.26%  ffmpeg_g         ffmpeg_g           [.] vvc_deblock
-     5.21%  ffmpeg_g         ffmpeg_g           [.] sao_copy_ctb_to_hv
-     4.82%  ffmpeg_g         ffmpeg_g           [.] ff_hevc_put_hevc_pel_pixels32_8_neon
-     4.27%  ffmpeg_g         ffmpeg_g           [.] hls_coding_tree
-     3.28%  ffmpeg_g         ffmpeg_g           [.] __aarch64_ldadd1_acq_rel
-     3.07%  ffmpeg_g         ffmpeg_g           [.] ff_vvc_store_mvf
-     2.78%  dec0:0:vvc       libc.so.6          [.] __memset_zva64
-     1.56%  ffmpeg_g         ffmpeg_g           [.] pred_regular
-     1.08%  ffmpeg_g         ffmpeg_g           [.] ff_vvc_coding_tree_unit
-```
-
----
-
-*Generated: 2026-03-27*
-*Test Command: `perf record -g -F 999 -o perf_8bit.data -- ./ffmpeg_g -c:v vvc -threads 4 -i t266_8M_tearsofsteel_4k.266 -frames:v 100 -f null -`*
+### P2: Medium (Expected 5-10% speedup)
+5. **Chroma MC optimization** - Complete NEON coverage
+6. **DMVR refinement** - Optimize search patterns

@@ -1,383 +1,324 @@
 # VVC Decoder Optimization Guide
 
+**Based on:** 10-bit performance analysis (500 frames per test)  
+**Platforms:** ARM64 (Raspberry Pi 5) and x86_64 (black2)
+
+---
+
 ## Executive Summary
 
-This guide presents optimization recommendations for FFmpeg's VVC decoder based on performance analysis on ARM (Raspberry Pi 5) and x86 (black2) platforms.
+### Key Finding: 10-bit is the Primary Bottleneck
 
-### Key Findings
+10-bit VVC decoding shows significantly different characteristics than 8-bit:
+- **2x memory bandwidth** requirement
+- **Higher ALF filter** overhead on ARM
+- **Deblocking** remains unoptimized (C code) on both platforms
 
-| Category | ARM (Pi5) | x86 (black2) | Priority |
-|----------|-----------|--------------|----------|
-| **Memory Operations** | 27.4% | 14.3% | **Critical** |
-| **Scheduling/Sync** | 5.2% | 8.4% | **High** |
-| **Deblocking Filter** | 20.1% | 11.1% | **High** |
-| **Motion Compensation** | 20.6% | 11.0% | Medium |
-| **SAO Filter** | 5.2% | 2.9% | Medium |
+### Performance Summary
 
-### Critical Bottleneck Identified
-
-**Task Scheduling Overhead scales with thread count:**
-- 4 threads (ARM): ~5% overhead
-- 8 threads (x86): ~8.4% overhead
-
-This indicates the global executor lock becomes a bottleneck at higher thread counts.
+| Platform | 10-bit 1080p | Memory % | Sync % | Critical Bottleneck |
+|----------|--------------|----------|--------|---------------------|
+| ARM (Pi5, 4T) | 32-60 fps | 17.9% | 1.0% | memcpy + ALF |
+| x86 (8T) | 214-373 fps | 11.8% | 2.5% | deblocking (C) |
 
 ---
 
-## 1. Architecture-Level Optimizations
+## Cross-Platform Comparison
 
-### 1.1 Task Scheduling System Redesign
+### Architecture-Level Bottlenecks
 
-**Current Problem:**
+| Bottleneck | ARM Impact | x86 Impact | Notes |
+|------------|------------|------------|-------|
+| **Memory Operations** | 17.9% | 11.8% | ARM lacks AVX2; 10-bit amplifies issue |
+| **ALF Filter** | 12.0% | 4.0% | NEON less efficient than AVX2 |
+| **Deblocking** | 12.0% | 11.0% | Both use C code for 10-bit |
+| **Task Scheduling** | 1.0% | 2.5% | Scales with thread count |
+| **Entropy Coding** | 3.4% | 5.8% | x86 shows higher parsing overhead |
+
+### Hot Function Comparison (city_crowd 10-bit)
+
+| Function | ARM % | x86 % | Gap | Root Cause |
+|----------|-------|-------|-----|------------|
+| memcpy/memset | 17.9% | 11.8% | **6.1%** | AVX2 vs generic ARM |
+| ALF filter | 12.0% | 4.0% | **8.0%** | NEON optimization gap |
+| Deblocking | 12.0% | 11.0% | 1.0% | Both C code |
+| Motion Comp | 8.5% | 5.0% | 3.5% | NEON coverage incomplete |
+
+---
+
+## Prioritized Optimization Recommendations
+
+### P0: Critical - Maximum Impact
+
+#### 1. Zero-Copy Pipeline (ARM: +20%, x86: +10%)
+
+**Problem:** 17.9% (ARM) / 11.8% (x86) cycles in memcpy/memset
+
+**Root Cause:** 
+- Buffer copies between 9 CTU pipeline stages
+- 10-bit samples amplify memory pressure (2x bandwidth)
+
+**Solution:**
 ```c
-// Global lock for all task operations
-ff_mutex_lock(&e->lock);   // Contention point
-task_submit();
-ff_mutex_unlock(&e->lock);
+// Current: copy between stages
+void sao_filter_ctu(SAOContext *sao, uint8_t *src, uint8_t *dst) {
+    memcpy(dst, src, size);  // ← Eliminate this
+    apply_sao(dst);
+}
+
+// Optimized: in-place with ring buffer
+typedef struct RingBuffer {
+    uint8_t *buffers[3];  // Triple buffering
+    int write_idx;
+} RingBuffer;
+
+void sao_filter_ctu(SAOContext *sao, RingBuffer *rb) {
+    uint8_t *buf = rb->buffers[rb->write_idx];
+    apply_sao(buf);
+    rb->write_idx = (rb->write_idx + 1) % 3;
+}
 ```
 
-**Recommended Solution: Work-Stealing Queues**
+**Effort:** High (2-3 weeks)  
+**Risk:** Medium (memory corruption bugs)  
+**Validation:** Measure memcpy before/after with perf
 
+---
+
+#### 2. NEON ALF Filter Optimization (ARM: +15%)
+
+**Problem:** ALF is #2 hotspot on ARM (12.0%) despite NEON implementation
+
+**Root Cause:**
+- Memory access patterns not cache-optimal
+- Classification overhead (1.65%)
+
+**Solution:**
 ```c
-// Per-thread task queue
-struct ThreadQueue {
-    FFTask *head;
-    FFTask *tail;
-    AVMutex lock;  // Only for stealing
-};
+// Current: row-by-row access
+for (y = 0; y < height; y++) {
+    for (x = 0; x < width; x += 8) {
+        // Load 8x8 block, poor locality
+        uint8x8_t p0 = vld1_u8(src + (y-3) * stride + x);
+        ...
+    }
+}
 
-struct FFExecutor {
-    ThreadQueue *queues;  // One per thread
-    // Global lock only for shutdown
-};
-```
-
-**Expected Impact:**
-- Reduce scheduling overhead from 8.4% to ~3%
-- Better scalability beyond 8 threads
-- Lower cache coherence traffic
-
-**Implementation Complexity:** High
-**Estimated Speedup:** 5-10% on high-thread-count systems
-
-### 1.2 Batch Task Submission
-
-**Current Problem:** Each task completion triggers immediate scheduling:
-```c
-// Called for every CTU stage completion
-frame_thread_add_score(s, ft, rx, ry, stage);  // One task at a time
-```
-
-**Recommended Solution:**
-```c
-// Batch multiple ready tasks
-typedef struct TaskBatch {
-    VVCTask *tasks[16];
-    int count;
-} TaskBatch;
-
-// Submit batch when threshold reached or at end of processing
-void submit_task_batch(VVCContext *s, TaskBatch *batch);
-```
-
-**Expected Impact:**
-- Reduce lock acquisitions by 5-10x
-- Lower synchronization overhead
-
-**Implementation Complexity:** Medium
-**Estimated Speedup:** 3-5%
-
-### 1.3 Lock-Free Progress Tracking
-
-**Current Problem:**
-```c
-atomic_fetch_add(&ft->rows[ry].col_progress[idx], 1);  // Per CTU
-ff_mutex_lock(&ft->lock);  // Frame-level lock
-// Update progress
-ff_mutex_unlock(&ft->lock);
-```
-
-**Recommended Solution: Seqlock Pattern**
-```c
-typedef struct SeqLockProgress {
-    atomic_uint sequence;  // Even = readable, Odd = writing
-    int progress;
-} SeqLockProgress;
-
-// Reader (lock-free)
-uint seq = atomic_load(&sp->sequence);
-if (seq % 2 == 0) {
-    int prog = sp->progress;
-    if (atomic_load(&sp->sequence) == seq) {
-        // Valid read
+// Optimized: 4x4 tile processing with prefetch
+for (ty = 0; ty < height; ty += 4) {
+    __builtin_prefetch(src + (ty+4) * stride);  // Prefetch next tile
+    for (tx = 0; tx < width; tx += 4) {
+        // Process 4x4 tile with high locality
+        alf_filter_4x4_neon(src + ty * stride + tx, ...);
     }
 }
 ```
 
-**Expected Impact:**
-- Eliminate frame-level lock contention
-- Reduce atomic operations
-
-**Implementation Complexity:** Medium
-**Estimated Speedup:** 2-4%
+**Effort:** Medium (1 week)  
+**Risk:** Low  
+**Validation:** Validate PSNR matches reference
 
 ---
 
-## 2. Function-Level Optimizations
+### P1: High Impact
 
-### 2.1 Deblocking Filter SIMD Optimization
+#### 3. AVX2 Deblocking Filter for 10-bit (x86: +15%, ARM: +10%)
 
-**Current State:** C implementation consuming 11-20% of cycles
+**Problem:** Deblocking uses C code for 10-bit (11% total on both platforms)
 
-**ARM NEON Implementation:**
+**Current State:**
+- 8-bit has SSE/AVX2 implementations
+- 10-bit path falls back to C
+
+**Solution:**
 ```c
-// vvc_deblock_neon.c
-void ff_vvc_deblock_vertical_neon(uint8_t *pix, ptrdiff_t stride,
-                                   int beta, int tc, int count);
-void ff_vvc_deblock_horizontal_neon(uint8_t *pix, ptrdiff_t stride,
-                                     int beta, int tc, int count);
+// lib/libavcodec/x86/vvc_deblock.asm
+; Add 10-bit AVX2 implementation
+INIT_YMM avx2
+%if BIT_DEPTH == 10
+cglobal vvc_deblock_luma_10, 6, 6, 16, pix, stride, tc, no_p, no_q, max_len
+    ; Load 8 pixels (16-bit each for 10-bit)
+    vmovdqu ymm0, [pixq - 8]    ; p3-p0
+    vmovdqu ymm1, [pixq]        ; q0-q3
+    
+    ; Compute filter decision (vectorized)
+    vpabsw ymm2, ymm0, ymm1     ; abs(p - q)
+    vpcmpgtw ymm3, ymm2, tc     ; compare with tc
+    
+    ; Apply filter (vectorized)
+    ...
+    
+    RET
+%endif
 ```
 
-**x86 AVX2 Implementation:**
-```c
-// vvc_deblock_avx2.c
-void ff_vvc_deblock_vertical_avx2(uint8_t *pix, ptrdiff_t stride,
-                                   int beta, int tc, int count);
-void ff_vvc_deblock_horizontal_avx2(uint8_t *pix, ptrdiff_t stride,
-                                     int beta, int tc, int count);
-```
-
-**Expected Speedup:**
-- ARM: 2-3x faster (reduce 20% → 7%)
-- x86: 2-3x faster (reduce 11% → 4%)
-
-**Implementation Complexity:** High
-**Priority:** **CRITICAL**
-
-### 2.2 Motion Vector Field Optimization
-
-**Current Problem:** `ff_vvc_set_mvf` consumes 4.16% on x86
-
-**Optimization Strategy:**
-```c
-// Batch MV field updates
-void ff_vvc_set_mvf_batch(VVCFrameContext *fc, MvField *mvs, int count) {
-    // Use SIMD for bulk copy
-    #if HAVE_AVX2
-        // 256-bit stores for MV fields
-    #elif HAVE_NEON
-        // 128-bit stores for MV fields
-    #else
-        // Fallback
-    #endif
-}
-```
-
-**Expected Speedup:** 2-3x for MV operations
-**Implementation Complexity:** Medium
-**Priority:** Medium
-
-### 2.3 Memory Copy Elimination
-
-**Current Problem:** memcpy/memset consumes 14-27% of cycles
-
-**Zero-Copy Pipeline:**
-```c
-// Current: Copy between stages
-void sao_copy_ctb_to_hv(VVCFrameContext *fc, int rx, int ry) {
-    // Copies CTB data to horizontal/vertical buffers
-    memcpy(h_buffer, src, size);
-    memcpy(v_buffer, src, size);
-}
-
-// Optimized: Use pointer swapping
-typedef struct CTUBuffers {
-    uint8_t *data;      // Main buffer
-    uint8_t *h_border;  // Pointer to H border within data
-    uint8_t *v_border;  // Pointer to V border within data
-} CTUBuffers;
-```
-
-**Expected Speedup:**
-- Eliminate 50% of memcpy operations
-- Reduce memory bandwidth by 10-15%
-
-**Implementation Complexity:** High
-**Priority:** **HIGH**
+**Effort:** Medium (1-2 weeks)  
+**Risk:** Low (existing 8-bit template)  
+**Validation:** Compare output with C reference
 
 ---
 
-## 3. Platform-Specific Optimizations
+#### 4. Work-Stealing Task Queues (x86: +10%, ARM: +5%)
 
-### 3.1 ARM (Raspberry Pi 5)
+**Problem:** Global executor lock causes 2.5% overhead at 8 threads (x86)
 
-#### 3.1.1 NEON Deblocking Filter
-
-**Target Functions:**
-- `vvc_deblock_bs_chroma` (6.93%)
-- `ff_vvc_deblock_bs` (6.87%)
-- `vvc_deblock` (6.26%)
-
-**Implementation Approach:**
+**Root Cause:**
 ```c
-// Process 8 pixels at a time with NEON
-int8x16_t p0 = vld1q_s8(pix - 4);
-int8x16_t p1 = vld1q_s8(pix - 3);
-int8x16_t p2 = vld1q_s8(pix - 2);
-int8x16_t p3 = vld1q_s8(pix - 1);
-int8x16_t q0 = vld1q_s8(pix);
-// ... deblocking logic
+// Current: global lock
+static int executor_worker_task(FFExecutor *e) {
+    pthread_mutex_lock(&e->lock);  // ← Contention point
+    task = get_ready_task(e);
+    pthread_mutex_unlock(&e->lock);
+    execute(task);
+}
 ```
 
-**Expected Impact:** Reduce deblocking from 20% to 7%
-
-#### 3.1.2 Cache Prefetching for MC
-
+**Solution:** Lock-free work-stealing deque per thread
 ```c
-// In motion compensation
-void prefetch_reference_pixels(const uint8_t *ref, int stride, int bw, int bh) {
-    for (int y = 0; y < bh; y += 64) {
-        __builtin_prefetch(ref + y * stride, 0, 3);
+typedef struct WorkStealingQueue {
+    atomic_int top, bottom;
+    VVCTask *tasks[MAX_TASKS];
+} WSQueue;
+
+// Push: lock-free
+void ws_push(WSQueue *q, VVCTask *task) {
+    int b = atomic_load(&q->bottom);
+    q->tasks[b & MASK] = task;
+    atomic_store(&q->bottom, b + 1);
+}
+
+// Steal: lock-free from other threads
+VVCTask *ws_steal(WSQueue *q) {
+    int t = atomic_load(&q->top);
+    int b = atomic_load(&q->bottom);
+    if (t >= b) return NULL;  // Empty
+    VVCTask *task = q->tasks[t & MASK];
+    if (atomic_compare_exchange(&q->top, t, t + 1)) {
+        return task;
     }
+    return NULL;  // Contention, retry elsewhere
 }
 ```
 
-**Expected Impact:** Reduce MC cache misses by 20-30%
+**Effort:** High (2-3 weeks)  
+**Risk:** High (concurrency bugs)  
+**Validation:** Stress test with 16+ threads
 
-### 3.2 x86 (black2)
+---
 
-#### 3.2.1 Reduce Thread Contention
+#### 5. Batch Task Submission (x86: +5%, ARM: +3%)
 
-**Problem:** 8.44% scheduling overhead with 8 threads
+**Problem:** One lock per task submission
 
-**Solution:** Adaptive Thread Count
+**Solution:**
 ```c
-int optimal_thread_count(int width, int height) {
-    int ctu_count = ((width + 63) / 64) * ((height + 63) / 64);
-    // Use fewer threads for smaller videos
-    if (ctu_count < 100) return 4;
-    if (ctu_count < 300) return 6;
-    return 8;
+// Current: one lock per task
+for (int i = 0; i < num_tasks; i++) {
+    pthread_mutex_lock(&executor->lock);
+    add_task(executor, tasks[i]);  // N lock acquisitions
+    pthread_mutex_unlock(&executor->lock);
+}
+
+// Optimized: batch with single lock
+pthread_mutex_lock(&executor->lock);
+for (int i = 0; i < num_tasks; i++) {
+    add_task_nolock(executor, tasks[i]);  // 1 lock acquisition
+}
+pthread_cond_broadcast(&executor->cond);
+pthread_mutex_unlock(&executor->lock);
+```
+
+**Effort:** Low (2-3 days)  
+**Risk:** Low  
+**Validation:** Measure lock contention with perf
+
+---
+
+### P2: Medium Impact
+
+#### 6. NEON Luma Deblocking (ARM: +8%)
+
+Similar to AVX2 deblocking but for ARM:
+- Port 8-bit NEON implementation to 10-bit
+- Focus on `vvc_loop_filter_luma_10`
+
+**Effort:** Medium (1 week)  
+**Risk:** Low
+
+---
+
+#### 7. Optimized Buffer Clearing (ARM: +5%)
+
+**Problem:** 3.1% in `__memset_zva64` (ARM)
+
+**Solution:** Use DC ZVA (Data Cache Zero by VA) for large buffers
+```c
+// Clear CTU buffers using DC ZVA
+void clear_ctu_buffer_neon(uint8_t *buf, size_t size) {
+    // DC ZVA zeros 64 bytes at a time
+    asm volatile(
+        "dc zva, %0"
+        :: "r"(buf)
+    );
 }
 ```
 
-**Expected Impact:** Reduce sync overhead from 8.4% to ~5%
-
-#### 3.2.2 AVX2 Deblocking Filter
-
-Same approach as NEON, but with 256-bit registers.
-
-**Expected Impact:** Reduce deblocking from 11% to 4%
-
-#### 3.2.3 AVX-512 Support
-
-For future processors, implement AVX-512 kernels:
-```c
-#if HAVE_AVX512
-void ff_vvc_put_pixels64_8_avx512(...);
-void ff_vvc_deblock_vertical_avx512(...);
-#endif
-```
+**Effort:** Low (2 days)  
+**Risk:** Low
 
 ---
 
-## 4. Optimization Priority Matrix
+## Implementation Roadmap
 
-| Optimization | Impact | Complexity | Priority | Platform |
-|--------------|--------|------------|----------|----------|
-| **NEON Deblocking** | High | High | **P0** | ARM |
-| **AVX2 Deblocking** | High | High | **P0** | x86 |
-| **Zero-Copy Pipeline** | High | High | **P1** | Both |
-| **Work-Stealing Queues** | Medium | High | **P1** | Both |
-| **Batch Task Submit** | Medium | Medium | **P2** | Both |
-| **Lock-Free Progress** | Low | Medium | **P2** | Both |
-| **MVF SIMD** | Medium | Medium | **P2** | Both |
-| **AVX-512 Kernels** | Medium | Medium | **P3** | x86 |
-| **SVE Support** | Medium | High | **P3** | ARM |
+### Phase 1: Quick Wins (Week 1-2)
+1. Batch task submission
+2. Optimized buffer clearing (ARM)
 
----
+**Expected Gain:** ARM: +8%, x86: +5%
 
-## 5. Implementation Roadmap
+### Phase 2: SIMD Optimization (Week 3-5)
+3. AVX2 deblocking filter (10-bit)
+4. NEON luma deblocking (10-bit)
+5. NEON ALF optimization
 
-### Phase 1: Quick Wins (1-2 weeks)
+**Expected Gain:** ARM: +25%, x86: +15%
 
-1. **Batch task submission** - 3-5% speedup
-2. **Adaptive thread count** - 3-5% speedup on x86
-3. **Cache prefetching** - 2-3% speedup
+### Phase 3: Architecture (Week 6-8)
+6. Zero-copy pipeline
+7. Work-stealing task queues
 
-### Phase 2: SIMD Optimizations (4-6 weeks)
+**Expected Gain:** ARM: +20%, x86: +10%
 
-1. **NEON deblocking filter** - 10-15% speedup on ARM
-2. **AVX2 deblocking filter** - 5-8% speedup on x86
-3. **MVF SIMD optimization** - 2-3% speedup
-
-### Phase 3: Architecture Improvements (6-8 weeks)
-
-1. **Zero-copy pipeline** - 10-15% speedup
-2. **Work-stealing queues** - 5-10% speedup
-3. **Lock-free progress tracking** - 2-4% speedup
+### Total Expected Speedup
+- **ARM (Pi5):** 32 fps → 55-60 fps (**1.7x**)
+- **x86 (8T):** 214 fps → 300-340 fps (**1.5x**)
 
 ---
 
-## 6. Measurement & Validation
+## Validation Checklist
 
-### 6.1 Benchmarking Protocol
+For each optimization:
+- [ ] Decode 500+ frames of 10-bit test content
+- [ ] Verify bit-exact output (PSNR = inf)
+- [ ] Measure with `perf record -g`
+- [ ] Compare before/after hotspot profiles
+- [ ] Test with 1, 2, 4, 8, 16 threads
+- [ ] Validate on both simple and complex scenes
+
+---
+
+## Measurement Commands
 
 ```bash
-# Baseline measurement
-perf stat -r 5 -e cycles,instructions,cache-misses,cache-references \
-    ./ffmpeg -c:v vvc -threads N -i test.vvc -frames:v 100 -f null -
+# Profile 10-bit decode with 500 frames
+perf record -g -F 999 -o perf.data \
+    ./ffmpeg -c:v vvc -threads 4 \
+    -i city_crowd_1920x1080.mp4 \
+    -frames:v 500 -f null -
 
-# Key metrics to track:
-# - Cycles per frame
-# - Instructions per cycle (IPC)
-# - Cache miss rate
-# - Decode FPS
+# Generate report
+perf report -i perf.data --stdio --no-children -g none
+
+# Focus on synchronization
+perf report -i perf.data | grep -E '(pthread|executor|lock)'
 ```
-
-### 6.2 Regression Testing
-
-Test with multiple video types:
-- 8-bit vs 10-bit
-- 1080p vs 4K
-- Low motion vs high motion
-- I-frame heavy vs P/B-frame heavy
-
-### 6.3 Thread Scaling Analysis
-
-Measure speedup with 1, 2, 4, 8, 16 threads to verify scalability improvements.
-
----
-
-## 7. Expected Overall Speedup
-
-### Conservative Estimates
-
-| Platform | Current FPS | Optimized FPS | Speedup |
-|----------|-------------|---------------|---------|
-| ARM (Pi5) | 24.3 | 35-40 | **1.4-1.6x** |
-| x86 (black2) | 99 | 120-140 | **1.2-1.4x** |
-
-### Breakdown by Optimization
-
-| Optimization | ARM Gain | x86 Gain |
-|--------------|----------|----------|
-| SIMD Deblocking | +15% | +8% |
-| Zero-Copy Pipeline | +10% | +8% |
-| Scheduling Improvements | +5% | +10% |
-| Other SIMD | +10% | +8% |
-| **Total** | **+40%** | **+34%** |
-
----
-
-## 8. References
-
-- Architecture Document: `vvc-architecture.md`
-- ARM Performance Analysis: `vvc-perf-analysis-pi2.md`
-- x86 Performance Analysis: `vvc-perf-analysis-black2.md`
-- FFmpeg VVC Source: `/Users/quink/work/ffmpeg_all/ffmpeg/libavcodec/vvc/`
-
----
-
-*Generated: 2026-03-27*
-*Based on perf analysis of 100 frames of t266_8M_tearsofsteel_4k.266*
