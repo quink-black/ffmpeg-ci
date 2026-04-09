@@ -225,7 +225,7 @@ LIMITATION:
 
   For multi-thread profiling, use Chrome DevTools:
   1. Start server: ./serve.sh
-  2. Open http://localhost:8080/emsdk-test/ in Chrome
+  2. Open http://localhost:8900/emsdk-test/ in Chrome
   3. Open DevTools (F12) > Performance tab
   4. Click Record, then click Decode on the test page
   5. Stop recording when decode finishes

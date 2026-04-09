@@ -50,34 +50,17 @@ run_checkasm_bench() {
 run_decode_bench() {
     local input="$1"
     local frames="${2:-100}"
-    local ffmpeg="${WASM_BUILD}/ffmpeg_g"
+    local threads="${3:-1}"
 
     if [ ! -f "$input" ]; then
         echo "Error: input file not found: $input" >&2
         exit 1
     fi
 
-    echo "=== decode benchmark: input=$(basename "$input") frames=$frames ==="
+    echo "=== decode benchmark: input=$(basename "$input") frames=$frames threads=$threads ==="
     echo ""
 
-    local start_ms
-    start_ms=$(date +%s%3N 2>/dev/null || python3 -c 'import time; print(int(time.time()*1000))')
-
-    "$NODE_WRAPPER" "$ffmpeg" -nostdin -i "$input" -frames:v "$frames" -f null - 2>&1
-
-    local end_ms
-    end_ms=$(date +%s%3N 2>/dev/null || python3 -c 'import time; print(int(time.time()*1000))')
-
-    local elapsed_ms=$((end_ms - start_ms))
-    echo ""
-    echo "--- Results ---"
-    echo "Frames: $frames"
-    echo "Wall time: ${elapsed_ms}ms"
-    if [ "$elapsed_ms" -gt 0 ]; then
-        local fps
-        fps=$(echo "scale=2; $frames * 1000 / $elapsed_ms" | bc)
-        echo "FPS: $fps"
-    fi
+    "$EMSDK_NODE" "${SCRIPT_DIR}/run-decode.js" "$input" "$frames" "$threads"
 }
 
 case "${1:-}" in

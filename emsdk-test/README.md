@@ -1,7 +1,6 @@
 # FFmpeg HEVC Decoder - emsdk Test Environment
 
 Test environment for FFmpeg HEVC decoder built with Emscripten (emsdk).
-Supports both Node.js and Chrome browser testing.
 
 ## Prerequisites
 
@@ -80,48 +79,30 @@ The `.cpuprofile` files can be loaded in Chrome DevTools > Performance tab.
 
 **Limitation**: Node.js `--cpu-prof` only profiles the main thread. With
 pthreads, decode work runs in Web Workers (80-90% shows as futex_wait).
-For multi-thread profiling, use Chrome DevTools Performance tab (see below).
 
-## Chrome Browser Testing
+## Packaging for Distribution
 
-### Start Server
+Package the decoder as a portable Node.js CLI tool:
 
 ```bash
-# Start HTTP server with Cross-Origin Isolation headers (required for SharedArrayBuffer)
-./serve.sh          # default port 8080
-./serve.sh 9000     # custom port
+# Package with WASM protection (recommended)
+./package.sh --protect-wasm
+
+# Package without protection (development)
+./package.sh
 ```
 
-### Open Test Page
+The packaged tool is in `ffmpeg-hevc-test-package/`. See
+[PACKAGE-README.md](PACKAGE-README.md) for packaging details.
 
-Open `http://localhost:8080/emsdk-test/` in Chrome.
+```bash
+# Test the package
+cd ffmpeg-hevc-test-package
+./decode.sh input.hevc --frames 100
 
-1. Select an HEVC stream file (.hevc, .h265, .mp4, etc.)
-2. Set max frames (0 = decode all)
-3. Click "Decode" to run and measure performance
-4. Click "Decode + Profile" to capture a Chrome DevTools profile
-
-### Chrome DevTools Profiling (multi-thread)
-
-The Chrome Performance tab profiles ALL threads including Web Workers,
-making it the best tool for multi-thread WASM profiling.
-
-1. Build with `--profiling-funcs` (see V8 Profiling section above)
-2. Start server: `./serve.sh` (from `emsdk-test/`)
-3. Open `http://localhost:8080/emsdk-test/` in Chrome
-4. Open DevTools (F12) > Performance tab
-5. Click Record (red circle button)
-6. On the test page, select an HEVC file and click "Decode"
-7. Wait for decode to finish, then Stop recording
-8. In the flame chart, expand **Worker** threads (not Main thread)
-   - Worker threads show the actual HEVC decode call stack
-   - Each worker = one pthread decode thread
-   - Zoom into the decode blocks for function-level detail
-9. Use Bottom-Up / Call Tree tabs for aggregated function-level view
-10. Export profile via download button for later comparison
-
-**WASM function names** only appear if built with `--profiling-funcs`.
-Without it, functions show as generic indices.
+# Distribute
+tar czf ffmpeg-hevc-test.tar.gz ffmpeg-hevc-test-package
+```
 
 ## Manual Usage
 
@@ -150,9 +131,6 @@ $EMSDK_NODE --prof-process isolate-*.log > profile.txt
   emscripten NODERAWFS not supporting terminal ioctls. The fate test system
   passes `-nostdin` automatically, so this only affects manual usage.
 
-- **Chrome file loading**: Files are loaded entirely into memory via FileReader
-  before decoding. Large files may cause high memory usage.
-
 - **V8 WASM JIT warmup**: First decode run may be slower due to V8's tiered
   compilation. For accurate benchmarks, consider a warmup pass.
 
@@ -165,6 +143,7 @@ $EMSDK_NODE --prof-process isolate-*.log > profile.txt
 | `benchmark.sh` | checkasm benchmarks and decode FPS measurement |
 | `profile.sh` | V8 CPU profiling (--cpu-prof) with auto-analysis |
 | `analyze-cpuprofile.py` | Python analyzer for `.cpuprofile` files (WASM function names) |
-| `index.html` | Chrome test page UI |
-| `test.js` | Chrome test page JavaScript driver |
-| `serve.sh` | HTTP server with COOP/COEP headers for SharedArrayBuffer |
+| `run-decode.js` | Node.js decode wrapper (used by benchmark.sh) |
+| `node-decode.js` | Standalone Node.js CLI decoder (used in packaged distribution) |
+| `protect-wasm.js` | WASM encryption tool for secure distribution |
+| `package.sh` | Package the decoder for distribution |
