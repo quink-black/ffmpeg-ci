@@ -47,22 +47,40 @@ Run FFmpeg's built-in test suite to verify decoder correctness:
 ./benchmark.sh decode /Volumes/quink/video/customer/dji/hevc_stream/file.hevc 100
 ```
 
-### V8 Profiling
+### V8 Profiling (function-level)
+
+Requires `--profiling-funcs` to add WASM function names to the profile:
 
 ```bash
-# Profile checkasm
+# Step 1: Enable --profiling-funcs (one-time)
+./profile.sh build-prof
+
+# Rebuild the binaries
+cd ~/work/ffmpeg_all/ffmpeg-ci/build/ffmpeg-wasm
+source ~/local/emsdk/emsdk_env.sh
+rm -f ffmpeg_g ffmpeg_g.wasm && make ffmpeg_g -j$(nproc)
+rm -f tests/checkasm/checkasm tests/checkasm/checkasm.wasm
+make tests/checkasm/checkasm -j$(nproc)
+
+# Step 2: Profile
+cd ~/work/ffmpeg_all/ffmpeg-ci/emsdk-test
 ./profile.sh checkasm hevc_sao "hevc_sao_edge*"
+./profile.sh decode ~/video/raw.hevc 600
 
-# Profile decode
-./profile.sh decode ~/video/raw.hevc 100
+# Step 3: Re-analyze existing profiles
+./profile.sh analyze                      # latest profile
+./profile.sh analyze profiles/decode/*.cpuprofile --wasm-only --top 60
 
-# Process the latest V8 isolate log
-./profile.sh process
+# Disable --profiling-funcs when done
+./profile.sh build-noprof
 ```
 
-Profile output is saved to `profiles/` directory. The `.txt` report shows
-top functions by CPU time. The raw `.log` files can also be loaded into
-Chrome DevTools for visualization.
+Profile output is saved to `profiles/{checkasm,decode}/` directory.
+The `.cpuprofile` files can be loaded in Chrome DevTools > Performance tab.
+
+**Limitation**: Node.js `--cpu-prof` only profiles the main thread. With
+pthreads, decode work runs in Web Workers (80-90% shows as futex_wait).
+For multi-thread profiling, use Chrome DevTools Performance tab (see below).
 
 ## Chrome Browser Testing
 
@@ -83,12 +101,27 @@ Open `http://localhost:8080/emsdk-test/` in Chrome.
 3. Click "Decode" to run and measure performance
 4. Click "Decode + Profile" to capture a Chrome DevTools profile
 
-### Chrome DevTools Profiling
+### Chrome DevTools Profiling (multi-thread)
 
-1. Open DevTools (F12) > Performance tab
-2. Click "Decode + Profile" on the test page
-3. The profile is captured via `console.profile()` / `console.profileEnd()`
-4. Alternatively, manually record in the Performance tab for more detail
+The Chrome Performance tab profiles ALL threads including Web Workers,
+making it the best tool for multi-thread WASM profiling.
+
+1. Build with `--profiling-funcs` (see V8 Profiling section above)
+2. Start server: `./serve.sh` (from `emsdk-test/`)
+3. Open `http://localhost:8080/emsdk-test/` in Chrome
+4. Open DevTools (F12) > Performance tab
+5. Click Record (red circle button)
+6. On the test page, select an HEVC file and click "Decode"
+7. Wait for decode to finish, then Stop recording
+8. In the flame chart, expand **Worker** threads (not Main thread)
+   - Worker threads show the actual HEVC decode call stack
+   - Each worker = one pthread decode thread
+   - Zoom into the decode blocks for function-level detail
+9. Use Bottom-Up / Call Tree tabs for aggregated function-level view
+10. Export profile via download button for later comparison
+
+**WASM function names** only appear if built with `--profiling-funcs`.
+Without it, functions show as generic indices.
 
 ## Manual Usage
 
@@ -130,7 +163,8 @@ $EMSDK_NODE --prof-process isolate-*.log > profile.txt
 | `run-node.sh` | Node.js wrapper for `--target-exec` (fate test integration) |
 | `run-fate.sh` | Convenience script to run fate-checkasm / fate-hevc |
 | `benchmark.sh` | checkasm benchmarks and decode FPS measurement |
-| `profile.sh` | V8 profiling (--prof) with auto-processing |
+| `profile.sh` | V8 CPU profiling (--cpu-prof) with auto-analysis |
+| `analyze-cpuprofile.py` | Python analyzer for `.cpuprofile` files (WASM function names) |
 | `index.html` | Chrome test page UI |
 | `test.js` | Chrome test page JavaScript driver |
 | `serve.sh` | HTTP server with COOP/COEP headers for SharedArrayBuffer |
