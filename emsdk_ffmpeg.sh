@@ -93,8 +93,6 @@ $ffmpeg_src/configure \
     --disable-stripping \
     --disable-doc \
     --disable-network \
-    --disable-protocol=fd \
-    --disable-protocol=pipe \
     --disable-autodetect \
     --extra-cflags='-msimd128 -pthread' \
     --extra-ldflags='-s INITIAL_MEMORY=256MB -s ALLOW_MEMORY_GROWTH=1 -s MAXIMUM_MEMORY=4GB -s MALLOC=emmalloc -s STACK_OVERFLOW_CHECK=1 -s ASSERTIONS=1 -s STACK_SIZE=10MB -s ASYNCIFY_STACK_SIZE=65536 -s EXPORTED_RUNTIME_METHODS=["FS","callMain"] -s PTHREAD_POOL_SIZE=8' \
