@@ -87,9 +87,35 @@ if [ "$enable_opt" -eq 0 ]; then
     extra_config="${extra_config} --disable-optimizations"
 fi
 
-# Node.js: NODERAWFS for direct host filesystem access (like wasmtime --dir=/)
-# Chrome: virtual FS only, disable fd/pipe protocols unsupported in browser
-extra_ldflags='-s INITIAL_MEMORY=256MB -s ALLOW_MEMORY_GROWTH=1 -s MAXIMUM_MEMORY=4GB -s MALLOC=emmalloc -s STACK_OVERFLOW_CHECK=1 -s ASSERTIONS=1 -s STACK_SIZE=10MB -s ASYNCIFY_STACK_SIZE=65536 -s EXPORTED_RUNTIME_METHODS=["FS","callMain"] -s PTHREAD_POOL_SIZE=8'
+# Link-time settings for the WASM module.
+#
+# Memory:
+#   INITIAL_MEMORY / MAXIMUM_MEMORY / ALLOW_MEMORY_GROWTH: size envelope for
+#   decoding frames. STACK_SIZE=10MB matches the main-thread stack only;
+#   worker threads use DEFAULT_PTHREAD_STACK_SIZE (2MB) which is adequate
+#   for the HEVC decoder.
+#
+# Threading:
+#   -pthread is required at link time (not only compile time) so the final
+#   module is built with shared memory support.
+#   PTHREAD_POOL_SIZE=8 pre-spawns workers so -threads N (N<=8) does not
+#   pay a worker-creation cost on the first frame.
+#   MALLOC is left at its default (dlmalloc). emmalloc is single-threaded
+#   and unsafe with pthreads.
+#
+# Target-specific:
+#   NODERAWFS (Node.js only) gives direct host filesystem access. Chrome
+#   uses the virtual FS; fd/pipe protocols are disabled there because the
+#   browser sandbox cannot support them.
+#
+# Debug vs. release:
+#   ASSERTIONS and STACK_OVERFLOW_CHECK add per-call runtime probes that
+#   distort benchmark numbers; they are enabled only when enable_opt=0.
+extra_ldflags='-pthread -s INITIAL_MEMORY=256MB -s ALLOW_MEMORY_GROWTH=1 -s MAXIMUM_MEMORY=4GB -s STACK_SIZE=10MB -s EXPORTED_RUNTIME_METHODS=FS,callMain -s PTHREAD_POOL_SIZE=8'
+
+if [ "$enable_opt" -eq 0 ]; then
+    extra_ldflags="${extra_ldflags} -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=1"
+fi
 
 if [ "$build_target" = "node" ]; then
     extra_ldflags="${extra_ldflags} -s NODERAWFS=1"
