@@ -20,9 +20,12 @@ if (!nodeFs.existsSync(resolvedInput)) {
   process.exit(1);
 }
 
-const buf = nodeFs.readFileSync(resolvedInput);
-const fileName = path.basename(resolvedInput);
-const wasmDir = path.resolve(__dirname, "../build/ffmpeg-wasm");
+// FFMPEG_WASM_DIR lets the caller select which build to benchmark (for
+// side-by-side comparison of target vs. baseline). Default keeps the old
+// behavior so existing scripts keep working.
+const wasmDir = process.env.FFMPEG_WASM_DIR
+  ? path.resolve(process.env.FFMPEG_WASM_DIR)
+  : path.resolve(__dirname, "../build/ffmpeg-wasm");
 
 global.Module = {
   noInitialRun: true,
@@ -33,11 +36,9 @@ global.Module = {
 const M = require(path.join(wasmDir, "ffmpeg_g"));
 
 M.onRuntimeInitialized = () => {
-  const vfsPath = "/input/" + fileName;
-  M.FS.mkdirTree("/input");
-  M.FS.writeFile(vfsPath, buf);
-
-  const args = ["-nostdin", "-threads", threads, "-i", vfsPath];
+  // With NODERAWFS the wasm module sees the host filesystem directly, so
+  // FFmpeg can open resolvedInput without any VFS staging.
+  const args = ["-nostdin", "-threads", threads, "-i", resolvedInput];
   if (frames > 0) args.push("-frames:v", String(frames));
   args.push("-f", "null", "-");
 
