@@ -8,6 +8,10 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${DIR:=${SCRIPT_DIR}}"
 
+# Source env.sh early so build_dir / install_dir / CC / etc. are available
+# regardless of whether this script is invoked standalone or via cibuild.sh.
+source ${DIR}/env.sh
+
 ffmpeg_build=${build_dir}/ffmpeg
 fate_samples=${DIR}/ffmpeg-fate-sample
 
@@ -151,6 +155,43 @@ if pkg-config --exists opencv4; then
     extra_config="${extra_config} --enable-libopencv"
 fi
 
+# Helper: probe if a pkg-config module exists AND a tiny program actually links
+# under --static (matches ffmpeg's --pkg-config-flags=--static behavior).
+# Skips dependencies whose static transitive libs (e.g. liblzma) are absent.
+probe_pkg_static() {
+    local mod=$1
+    pkg-config --exists "$mod" 2>/dev/null || return 1
+    local cflags libs
+    cflags=$(pkg-config --cflags "$mod" 2>/dev/null) || return 1
+    libs=$(pkg-config --static --libs "$mod" 2>/dev/null) || return 1
+    local tmp
+    tmp=$(mktemp -d) || return 1
+    printf 'int main(void){return 0;}\n' > "$tmp/t.c"
+    if ${CC:-cc} $cflags "$tmp/t.c" -o "$tmp/t" $libs >/dev/null 2>&1; then
+        rm -rf "$tmp"
+        return 0
+    fi
+    rm -rf "$tmp"
+    return 1
+}
+
+# Optional system dependencies — enable only when the static link probe passes.
+if probe_pkg_static libxml-2.0; then
+    extra_config="${extra_config} --enable-libxml2"
+fi
+
+if probe_pkg_static openssl; then
+    extra_config="${extra_config} --enable-openssl --enable-nonfree"
+fi
+
+if probe_pkg_static lcms2; then
+    extra_config="${extra_config} --enable-lcms2"
+fi
+
+if probe_pkg_static OpenCL; then
+    extra_config="${extra_config} --enable-opencl"
+fi
+
 if [ "$enable_asan" -eq 1 ]; then
     if ${CC} -v 2>&1 |grep 'clang version' -q; then
         extra_config="--toolchain=clang-asan ${extra_config}"
@@ -188,8 +229,8 @@ pushd ${ffmpeg_build}
 
 $ffmpeg_src/configure \
     --prefix=$install_dir \
-    --cc="ccache ${CC}" \
-    --cxx="ccache ${CXX}" \
+    --cc="${CCACHE_BIN:+${CCACHE_BIN} }${CC}" \
+    --cxx="${CCACHE_BIN:+${CCACHE_BIN} }${CXX}" \
     --ld="${CXX}" \
     --assert-level=2 \
     --extra-cflags="-I${install_dir}/include" \
@@ -201,15 +242,9 @@ $ffmpeg_src/configure \
     --enable-libx264 \
     --enable-libx265 \
     --enable-libdav1d \
-    --enable-nonfree \
     --enable-gpl \
     --enable-version3 \
     --enable-rpath \
-    --enable-lcms2 \
-    --enable-libxml2 \
-    --enable-lcms2 \
-    --enable-opencl \
-    --enable-openssl \
     --disable-doc \
     --samples=${fate_samples} \
     --ignore-tests="${skip_test_case}" \

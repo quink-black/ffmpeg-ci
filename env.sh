@@ -11,9 +11,14 @@ export PKG_CONFIG_PATH="${install_dir}/lib/pkgconfig:${install_dir}/lib64/pkgcon
 export CC=cc
 export CXX=c++
 
-if which ccache; then
+if which ccache >/dev/null 2>&1; then
     export CMAKE_C_COMPILER_LAUNCHER="ccache"
     export CMAKE_CXX_COMPILER_LAUNCHER="ccache"
+    export CCACHE_BIN="ccache"
+else
+    unset CMAKE_C_COMPILER_LAUNCHER
+    unset CMAKE_CXX_COMPILER_LAUNCHER
+    export CCACHE_BIN=""
 fi
 
 export CFLAGS='-fPIC'

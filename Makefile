@@ -14,6 +14,7 @@ export CMAKE_BUILD_TYPE := RelWithDebInfo
 export CMAKE_INSTALL_PREFIX := ${install_dir}
 
 CPU := $(shell uname -p)
+ARCH := $(shell uname -m)
 OS := $(shell uname -o)
 
 NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu)
@@ -122,12 +123,22 @@ vulkan_header_build := ${build_dir}/vulkan_header
 	touch $@
 
 vulkan_loader_build := ${build_dir}/vulkan_loader
+# On Linux/BSD the loader pulls in XCB/Xlib/XRandR WSI by default. On
+# headless hosts (e.g. ARM Linux without X dev packages) those pkg-config
+# modules are missing and CMake aborts. Probe and disable WSI options whose
+# system libraries are absent so the build still succeeds.
+vulkan_loader_wsi_flags = \
+	$(if $(shell pkg-config --exists xcb && echo y),,-DBUILD_WSI_XCB_SUPPORT=OFF) \
+	$(if $(shell pkg-config --exists x11 && echo y),,-DBUILD_WSI_XLIB_SUPPORT=OFF -DBUILD_WSI_XLIB_XRANDR_SUPPORT=OFF) \
+	$(if $(shell pkg-config --exists xrandr && echo y),,-DBUILD_WSI_XLIB_XRANDR_SUPPORT=OFF)
+
 .vulkan_loader: ${DIR}/vulkan_loader .vulkan_header
 	cd $< && cmake -B ${vulkan_loader_build} \
 		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
 		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} \
 		-DENABLE_WERROR=OFF \
-		-DUSE_MASM=OFF && \
+		-DUSE_MASM=OFF \
+		${vulkan_loader_wsi_flags} && \
 		cmake --build ${vulkan_loader_build} && \
 		cmake --install ${vulkan_loader_build}
 	touch $@
@@ -174,7 +185,9 @@ x265_build := ${build_dir}/x265
 third_party := .aom .cms .dav1d .uavs3d .x264 .x265 .vulkan_header .vulkan_loader .libplacebo .vvenc
 #third_party += .xavs2 .uavs3e .fontconfig
 
-ifneq ($(CPU),arm)
+# davs2 has no aarch64/arm assembly sources; its build links non-existent
+# common/aarch64/*.o on ARM hosts and fails. Limit davs2 to x86_64 Linux/macOS.
+ifeq ($(filter arm arm64 aarch64 armv7l armv6l,$(CPU) $(ARCH)),)
 ifneq ($(OS),Msys)
 	third_party += .davs2
 endif
