@@ -71,6 +71,7 @@ ffmpeg_src="$(cd "${ffmpeg_src}" && pwd)"
 source ${DIR}/env.sh
 
 extra_config=" "
+extra_cflags="-I${install_dir}/include"
 extra_ldflags=" "
 extra_libs=""
 
@@ -195,9 +196,33 @@ fi
 if [ "$enable_asan" -eq 1 ]; then
     if ${CC} -v 2>&1 |grep 'clang version' -q; then
         extra_config="--toolchain=clang-asan ${extra_config}"
+        # clang/compiler-rt defaults detect_stack_use_after_return to false at
+        # runtime, so the fake-stack hot path is not active by default and no
+        # extra flag is needed.
+        asan_uar_flag=""
     else
         extra_config="--toolchain=gcc-asan ${extra_config}"
         extra_ldflags="${extra_ldflags} -static-libasan"
+        # GCC's libsanitizer (e.g. Ubuntu 24.04 gcc-13) defaults
+        # detect_stack_use_after_return to true. The __asan_stack_malloc_*
+        # helper then dominates hot leaf functions on aarch64 (wavpack
+        # wv_get_value, sws_ops kernels), turning a 10s decode into an
+        # effectively unbounded run. Disable the instrumentation at compile
+        # time so the runtime flag is moot. We trade only stack-use-after-
+        # return detection; heap/global/stack-buffer-overflow stays on.
+        asan_uar_flag="--param=asan-use-after-return=0"
+    fi
+    if [ -n "${asan_uar_flag}" ]; then
+        # Verify the compiler actually accepts the flag before adopting it.
+        asan_probe_dir=$(mktemp -d)
+        printf 'int main(void){return 0;}\n' > "${asan_probe_dir}/t.c"
+        if ${CC} -fsanitize=address ${asan_uar_flag} \
+                "${asan_probe_dir}/t.c" -o "${asan_probe_dir}/t" >/dev/null 2>&1; then
+            extra_cflags="${extra_cflags} ${asan_uar_flag}"
+        else
+            echo "warning: ${CC} rejects ${asan_uar_flag}; ASan stack-use-after-return stays on"
+        fi
+        rm -rf "${asan_probe_dir}"
     fi
     ffmpeg_build=${ffmpeg_build}_asan
 fi
@@ -233,7 +258,7 @@ $ffmpeg_src/configure \
     --cxx="${CCACHE_BIN:+${CCACHE_BIN} }${CXX}" \
     --ld="${CXX}" \
     --assert-level=2 \
-    --extra-cflags="-I${install_dir}/include" \
+    --extra-cflags="${extra_cflags}" \
     --extra-ldflags="-L${install_dir}/lib ${extra_ldflags}" \
     --extra-libs="-lstdc++ $extra_libs -lm" \
     --pkg-config-flags='--static' \
