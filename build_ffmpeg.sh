@@ -189,6 +189,10 @@ if probe_pkg_static lcms2; then
     extra_config="${extra_config} --enable-lcms2"
 fi
 
+if probe_pkg_static libwebp; then
+    extra_config="${extra_config} --enable-libwebp"
+fi
+
 if probe_pkg_static OpenCL; then
     extra_config="${extra_config} --enable-opencl"
 fi
