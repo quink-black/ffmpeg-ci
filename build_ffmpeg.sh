@@ -204,6 +204,10 @@ if pkg-config --exists whisper; then
     extra_config+=" --enable-whisper"
 fi
 
+if pkg-config --exists caca; then
+    extra_config+=" --enable-libcaca"
+fi
+
 if pkg-config --exists opencv4 && [ "$enable_asan" -eq 0 ]; then
     extra_config+=" --enable-libopencv"
 fi
