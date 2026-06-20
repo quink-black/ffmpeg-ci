@@ -285,7 +285,7 @@ NPROC=$(nproc 2>/dev/null || sysctl -n hw.logicalcpu)
 
 mkdir -p "${build_dir}"
 
-pushd -q "${build_dir}"
+pushd "${build_dir}" > /dev/null
 
 # allow in source build of ffmpeg with msys
 if [ -z "$MSYSTEM" ]; then
@@ -293,7 +293,7 @@ if [ -z "$MSYSTEM" ]; then
 fi
 
 mkdir -p "${ffmpeg_build}"
-pushd -q "${ffmpeg_build}"
+pushd "${ffmpeg_build}" > /dev/null
 
 ignore_tests_arg=""
 if [ -n "${skip_test_case}" ]; then
@@ -331,6 +331,6 @@ if [ "$do_install" -eq 1 ]; then
     make install
 fi
 
-popd -q
+popd > /dev/null
 
-popd -q
+popd > /dev/null

@@ -138,7 +138,7 @@ source "${DIR}/setup_meson.sh"
 termux_setup_meson
 
 # libplacebo (always built for Android)
-pushd -q "${DIR}/libplacebo"
+pushd "${DIR}/libplacebo" > /dev/null
 "${DIR}/meson/meson.py" setup \
     "${build_dir}/libplacebo-${ANDROID_ABI}" \
     --cross-file "${TERMUX_MESON_CROSSFILE}" \
@@ -151,7 +151,7 @@ ninja -C "${build_dir}/libplacebo-${ANDROID_ABI}" install
 # Patch libplacebo.pc to include transitive deps that meson omits
 sed -i 's/Libs.*$/Libs: -L${libdir} -lplacebo -lm -pthread -ldl -lvulkan/' \
     "${install_dir}/lib/pkgconfig/libplacebo.pc"
-popd -q
+popd > /dev/null
 
 if [ "${enable_x264}" -eq 1 ]; then
     # x264's configure rejects the Android strip; use a no-op during build
@@ -163,7 +163,7 @@ fi
 if [ "${enable_x265}" -eq 1 ]; then
     x265_src="${DIR}/x265/source"
 
-    pushd -q "${x265_src}"
+    pushd "${x265_src}" > /dev/null
     cmake -G Ninja \
         --toolchain "${ANDROID_NDK}/build/cmake/android.toolchain.cmake" \
         -DASM_FLAGS="--target=${TARGET}${API}" \
@@ -175,7 +175,7 @@ if [ "${enable_x265}" -eq 1 ]; then
         -DANDROID_STL=c++_static \
         -DANDROID_PLATFORM=android-21 \
         -B "${build_dir}/x265"
-    popd -q
+    popd > /dev/null
 
     ninja -C "${build_dir}/x265" install
 fi
@@ -205,11 +205,11 @@ fi
 
 NPROC=$(nproc 2>/dev/null || sysctl -n hw.logicalcpu)
 
-pushd -q "${build_dir}"
+pushd "${build_dir}" > /dev/null
 
 rm -Rf "${ffmpeg_build}"
 mkdir -p "${ffmpeg_build}"
-pushd -q "${ffmpeg_build}"
+pushd "${ffmpeg_build}" > /dev/null
 
 # shellcheck disable=SC2086
 "${ffmpeg_src}/configure" \
@@ -249,6 +249,6 @@ if [ "${do_install}" -eq 1 ]; then
     make install
 fi
 
-popd -q
+popd > /dev/null
 
-popd -q
+popd > /dev/null
