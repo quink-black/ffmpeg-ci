@@ -192,8 +192,12 @@ if pkg-config --exists davs2; then
     extra_config+=" --enable-libdavs2"
 fi
 
-if pkg-config --exists fontconfig; then
-    extra_config+=" --enable-libfreetype --enable-libfontconfig"
+if pkg-config --exists freetype2; then
+    extra_config+=" --enable-libfreetype"
+fi
+
+if probe_pkg_static fontconfig; then
+    extra_config+=" --enable-libfontconfig"
 fi
 
 if pkg-config --exists harfbuzz; then
