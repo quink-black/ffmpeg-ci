@@ -204,7 +204,7 @@ if pkg-config --exists harfbuzz; then
     extra_config+=" --enable-libharfbuzz"
 fi
 
-if pkg-config --exists whisper; then
+if probe_pkg_static whisper; then
     extra_config+=" --enable-whisper"
 fi
 
