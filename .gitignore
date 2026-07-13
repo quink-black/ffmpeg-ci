@@ -31,3 +31,5 @@ wdblogs/
 .idea/vcs.xml
 .idea/CopilotChat*.xml
 .idea/*.iml
+
+ffmpeg-fate-sample/
