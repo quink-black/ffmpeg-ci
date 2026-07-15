@@ -122,7 +122,7 @@ export STRINGS="${TOOLCHAIN}/bin/llvm-strings"
 export CROSS_PREFIX="${TARGET}-"
 export HOST="${TARGET}"
 
-export CFLAGS="-I${DIR}/vulkan_header/include -I${DIR}/../shaderc/third_party/spirv-headers/include"
+export CFLAGS="-I${DIR}/vulkan_header/include -I/home/quink/work/shaderc/third_party/spirv-headers/include"
 export LDFLAGS="-L${DIR}/prebuilt_android/${ANDROID_ABI} -lshaderc -lvulkan"
 export PKG_CONFIG_PATH="${DIR}/prebuilt_android/${ANDROID_ABI}/pkgconfig:${install_dir}/lib/pkgconfig"
 export PKG_CONFIG=pkg-config
