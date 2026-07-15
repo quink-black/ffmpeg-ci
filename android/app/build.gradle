@@ -2,8 +2,18 @@ plugins {
     id 'com.android.application'
 }
 
+// Read NDK version from local.properties (optional).
+// If ndk.version is set, use it; otherwise AGP auto-detects the installed NDK.
+// Add this line to local.properties if you need a specific version:  ndk.version=28.1.13356709
+def localProps = new Properties()
+def localPropsFile = rootProject.file('local.properties')
+if (localPropsFile.exists()) localProps.load(localPropsFile.newDataInputStream())
+def ndkVer = localProps.getProperty('ndk.version')
+
 android {
     compileSdk 32
+
+    if (ndkVer) ndkVersion ndkVer
 
     defaultConfig {
         applicationId "com.example.ffmpegplay"

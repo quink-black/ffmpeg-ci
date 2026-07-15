@@ -4,17 +4,24 @@ project("ffmpegplay")
 
 set(ffmpeg_build_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/ffmpeg-aarch64/)
 set(ffmpeg_src_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/ffmpeg-aarch64/src)
+set(ffmpeg_ci_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../)
 #set(ffmpeg_install_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../install)
 
 add_library(ffmpegplay SHARED
         ffmpeg_misc.c
         native-lib.cpp
+        binder.c
         cmdutils.c
         ffmpeg.c
+        ffmpeg_dec.c
+        ffmpeg_enc.c
+        ffmpeg_sched.c
         ffmpeg_hw.c
         cmdutils.h
         ffmpeg.h
         ffmpeg_mux.h
+        ffmpeg_sched.h
+        ffmpeg_utils.h
         fopen_utf8.h
         objpool.h
         opt_common.h
@@ -29,22 +36,59 @@ add_library(ffmpegplay SHARED
         opt_common.c
         sync_queue.c
         thread_queue.c
+        graph/graphprint.c
+        textformat/avtextformat.c
+        textformat/tf_compact.c
+        textformat/tf_default.c
+        textformat/tf_flat.c
+        textformat/tf_ini.c
+        textformat/tf_json.c
+        textformat/tf_mermaid.c
+        textformat/tf_xml.c
+        textformat/tw_avio.c
+        textformat/tw_buffer.c
+        textformat/tw_stdout.c
+        ffmpeg_resman.c
         )
 
 target_include_directories(ffmpegplay PRIVATE
         ${ffmpeg_build_dir}
         ${ffmpeg_src_dir}/fftools
-        ${ffmpeg_src_dir})
+        ${ffmpeg_src_dir}
+        ${CMAKE_CURRENT_SOURCE_DIR}/graph
+        ${CMAKE_CURRENT_SOURCE_DIR}/textformat
+        ${CMAKE_CURRENT_SOURCE_DIR}/resources
+        ${CMAKE_CURRENT_SOURCE_DIR}/compat/stdbit)
+
+# FFmpeg's aarch64/asm.S `movrel` macro emits direct ADRP+ADD (page-relative)
+# for PIC — matching dav1d and FFmpeg upstream. AArch64 lld only accepts such
+# ADRP against non-preemptible symbols, so we bind SO-internal references to
+# local definitions with -Bsymbolic (this is what FFmpeg's own configure does
+# via `test_ldflags -Wl,-Bsymbolic && append SHFLAGS -Wl,-Bsymbolic`).
+#
+# Android 15+ on arm64 requires 16KB page alignment for shared libraries.
+# -z,max-page-size=16384 sets the max page size lld uses for layout.
+# -z,separate-loadable-segments places each LOAD segment on its own
+# page boundary, ensuring both file offset and vaddr are 16KB-aligned
+# (required by mmap on 16KB-page-size kernels).
+target_link_options(ffmpegplay PRIVATE
+        "-Wl,-Bsymbolic"
+        "-Wl,-z,max-page-size=16384"
+        "-Wl,-z,separate-loadable-segments"
+        )
 
 target_link_libraries(ffmpegplay
         ${ffmpeg_build_dir}/libavdevice/libavdevice.a
         ${ffmpeg_build_dir}/libavfilter/libavfilter.a
         ${ffmpeg_build_dir}/libavformat/libavformat.a
         ${ffmpeg_build_dir}/libavcodec/libavcodec.a
-        ${ffmpeg_build_dir}/libpostproc/libpostproc.a
         ${ffmpeg_build_dir}/libswresample/libswresample.a
         ${ffmpeg_build_dir}/libswscale/libswscale.a
         ${ffmpeg_build_dir}/libavutil/libavutil.a
+        # external deps the FFmpeg static libs were built against (NDK28 + libplacebo/vulkan)
+        ${ffmpeg_ci_dir}/install-aarch64/lib/libplacebo.a
+        ${ffmpeg_ci_dir}/prebuilt_android/aarch64/libshaderc.a
+        vulkan
         #${ffmpeg_install_dir}/lib/libx264.a
 
         camera2ndk
