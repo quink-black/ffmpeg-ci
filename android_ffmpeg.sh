@@ -186,7 +186,10 @@ fi
 extra_config=""
 
 # Vulkan and shaderc are always available via prebuilt Android libs
-extra_config+=" --enable-vulkan --enable-libshaderc"
+extra_config+=" --enable-vulkan"
+if grep -q -- '--enable-libshaderc ' "${FFMPEG_SRC}/configure"; then
+    extra_config+=" --enable-libshaderc"
+fi
 
 # libplacebo was built above; always enable it
 extra_config+=" --enable-libplacebo"
