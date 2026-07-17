@@ -1002,6 +1002,23 @@ int main(int argc, char **argv)
     int ret;
     BenchmarkTimeStamps ti;
 
+    /*
+     * Android patch: reset the file-local statics that the upstream main()
+     * leaves dirty across runs. This build drives main() repeatedly from a
+     * single app process (see native-lib.cpp), so a signal received in one
+     * run (received_sigterm / received_nb_signals) would poison the next
+     * run's decode_interrupt_cb and exit code. transcode_init_done and
+     * ffmpeg_exited must also return to their initial state, and
+     * copy_ts_first_pts must return to AV_NOPTS_VALUE so print_report's
+     * stats offset is not carried over. See ANDROID_PATCHES.md PATCH 6.
+     * Re-apply after every upstream sync.
+     */
+    received_sigterm = 0;
+    received_nb_signals = 0;
+    atomic_store(&transcode_init_done, 0);
+    ffmpeg_exited = 0;
+    copy_ts_first_pts = AV_NOPTS_VALUE;
+
     init_dynload();
 
     setvbuf(stderr,NULL,_IONBF,0); /* win32 runtime needs this */

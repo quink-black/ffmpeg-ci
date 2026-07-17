@@ -88,6 +88,33 @@ Re-apply after sync: after copying the new ffmpeg.c, search for
        list a local binder.c.
 
 ----------------------------------------------------------------------
+PATCH 6 (KEEP) - reset file-local statics at the start of main()
+----------------------------------------------------------------------
+File : ffmpeg.c
+Why  : Upstream main() is written for a single invocation per process.
+       Several file-local statics are left dirty after a run and are never
+       zeroed: received_sigterm / received_nb_signals (set by
+       sigterm_handler; read by decode_interrupt_cb and the final exit-code
+       mapping at `received_nb_signals ? 255 : ...`), transcode_init_done
+       (set to 1 in transcode(); read by decode_interrupt_cb), ffmpeg_exited
+       (set to 1 in ffmpeg_cleanup()), and copy_ts_first_pts (set to the
+       first PTS; read by print_report). This build calls main() repeatedly
+       from one app process (native-lib.cpp), so a signal received in one
+       run poisons the next: the follow-up run reports "Exiting normally,
+       received signal N" and exits 255 even though transcoding succeeded.
+How  : At the top of main(), before init_dynload(), reset all five statics
+       to their initial values:
+         received_sigterm = 0;
+         received_nb_signals = 0;
+         atomic_store(&transcode_init_done, 0);
+         ffmpeg_exited = 0;
+         copy_ts_first_pts = AV_NOPTS_VALUE;
+Re-apply after sync: after copying the new ffmpeg.c, add the reset block
+       at the top of main() (after the local variable declarations, before
+       init_dynload()). Verify the five statics still exist with the same
+       names; if upstream renamed or removed any, adjust accordingly.
+
+----------------------------------------------------------------------
 Files that are project-private and never overwritten by sync
 ----------------------------------------------------------------------
   native-lib.cpp   - JNI bridge: runFFmpeg() tokenizes the cmd string and
