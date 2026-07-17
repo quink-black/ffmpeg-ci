@@ -1,0 +1,49 @@
+FFmpeg upstream version synced into app/cpp
+==========================================
+
+commit  : 1bc788a73beb174d1d0d213175adce79a8f3e8c8
+date    : 2026-07-15 10:35:12 +0800
+version : 8.0.git
+subject : avdevice/android_camera: fix OOB read in metadata parsing
+
+source dir : /Users/quink/work/ffmpeg_all/ffmpeg
+build dir  : /Users/quink/work/ffmpeg_all/ffmpeg-ci/build/ffmpeg-aarch64
+            (symlink build/ffmpeg-aarch64/src -> /Users/quink/work/ffmpeg_all/ffmpeg)
+
+Synced scope (fftools/ only):
+  ffmpeg.c  ffmpeg.h  ffmpeg_dec.c  ffmpeg_demux.c  ffmpeg_enc.c
+  ffmpeg_filter.c  ffmpeg_hw.c  ffmpeg_mux.c  ffmpeg_mux.h
+  ffmpeg_mux_init.c  ffmpeg_opt.c  ffmpeg_sched.c  ffmpeg_sched.h
+  ffmpeg_utils.h
+  cmdutils.c  cmdutils.h  opt_common.c  opt_common.h  fopen_utf8.h
+  sync_queue.c  sync_queue.h  thread_queue.c  thread_queue.h
+  graph/graphprint.c  graph/graphprint.h
+  textformat/*  (avtextformat.c  tf_*.c  tw_*.c  *.h)
+  ffprobe.c
+
+  Note: upstream compat/android/binder.{c,h} is intentionally NOT copied.
+  libavutil.a already provides android_binder_threadpool_init_if_required().
+  ffmpeg.c is patched (see ANDROID_PATCHES.md) to never call it, because
+  the app process already owns a binder thread pool and re-initializing it
+  asserts on Android 15+ (API 35).
+
+NOT synced (project-private files, do NOT overwrite):
+  native-lib.cpp        - JNI bridge, calls main()
+  ffmpeg_global.h       - gSurfaceObject / readVirtualKey declarations
+  ffmpeg_misc.c         - resetFFmpegGlobal(), adapted to new globals
+  objpool.c  objpool.h  - leftover from older fftools, still compiled
+
+How to re-sync next time:
+  SRC=/Users/quink/work/ffmpeg_all/ffmpeg/fftools
+  DST=/Users/quink/work/ffmpeg_all/ffmpeg-ci/android/app/cpp
+  cp $SRC/{cmdutils.c,cmdutils.h,ffmpeg.c,ffmpeg.h,ffmpeg_dec.c,ffmpeg_demux.c,\
+            ffmpeg_enc.c,ffmpeg_filter.c,ffmpeg_hw.c,ffmpeg_mux.c,ffmpeg_mux.h,\
+            ffmpeg_mux_init.c,ffmpeg_opt.c,ffmpeg_sched.c,ffmpeg_sched.h,\
+            ffmpeg_utils.h,opt_common.c,opt_common.h,fopen_utf8.h,\
+            sync_queue.c,sync_queue.h,thread_queue.c,thread_queue.h,ffprobe.c} $DST/
+  cp $SRC/graph/graphprint.c $SRC/graph/graphprint.h $DST/graph/
+  cp $SRC/textformat/* $DST/textformat/
+  Then re-apply the Android patches in ANDROID_PATCHES.md:
+    - PATCH 1: MediaCodec surface injection in ffmpeg_hw.c
+    - PATCH 5: skip android_binder_threadpool_init_if_required() in ffmpeg.c
+  and refresh this file.

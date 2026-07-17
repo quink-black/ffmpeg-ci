@@ -22,7 +22,7 @@ static std::queue<char> sVirtualKeyQueue;
 
 static JavaVM *gJavaVM;
 
-extern "C" int ffmpeg_main(int argc, char **argv);
+extern "C" int main(int argc, char **argv);
 
 static void log_callback(void *ctx, int prio, const char *fmt, va_list va)
 {
@@ -84,7 +84,7 @@ Java_com_example_ffmpegplay_FFmpeg_runFFmpeg(JNIEnv *env, jclass clazz, jstring 
     }
 
     cmd_list.push_back(nullptr);
-    int ret = ffmpeg_main(cmd_list.size() - 1, cmd_list.data());
+    int ret = main(cmd_list.size() - 1, cmd_list.data());
     __android_log_print(ANDROID_LOG_WARN, kLogTag, "FFmpeg exit from return, %d", ret);
 
     return ret;

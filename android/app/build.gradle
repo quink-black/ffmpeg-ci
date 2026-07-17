@@ -53,6 +53,14 @@ android {
     buildFeatures {
         viewBinding true
     }
+    // Android 15+ on arm64 devices with 16KB page size requires that .so
+    // files inside the APK are stored uncompressed and aligned to 16KB
+    // boundaries, so the linker can mmap them directly from the APK.
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
 }
 
 dependencies {
@@ -63,4 +71,63 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
+}
+
+// Re-align APK with 16KB page size for .so files (Android 15+ arm64 requirement).
+// AGP 7.x zipalign only aligns to 4KB; we need -P 16 for uncompressed .so files.
+// This task runs after packageDebug/packageRelease and overwrites the APK.
+// Find the latest zipalign that supports -P <pagesize_kb> (build-tools 34+)
+def buildToolsDir = new File(android.sdkDirectory, "build-tools")
+def zipalignExe = buildToolsDir.listFiles()
+        ?.findAll { it.isDirectory() && new File(it, "zipalign").exists() }
+        ?.collect { new File(it, "zipalign") }
+        ?.sort()?.last()?.absolutePath
+        ?: android.sdkDirectory.toString() + "/build-tools/" + android.buildToolsVersion + "/zipalign"
+
+android.applicationVariants.all { variant ->
+    def variantName = variant.name.capitalize()
+    def pkgTask = tasks.findByName("package${variantName}")
+    if (pkgTask == null) return
+
+    def realignTask = tasks.register("realign${variantName}Apk16K") {
+        doLast {
+            def apkDir = variant.outputs.first().outputFile.parentFile
+            def origApk = variant.outputs.first().outputFile
+            def tmpApk = new File(apkDir, origApk.name + ".unaligned")
+            ant.move(file: origApk, tofile: tmpApk)
+            exec {
+                executable zipalignExe
+                args "-f", "-P", "16", "4", tmpApk.absolutePath, origApk.absolutePath
+            }
+            tmpApk.delete()
+            // zipalign invalidates the v1/v2 signature; re-sign with apksigner
+            def buildToolsLatest = new File(android.sdkDirectory, "build-tools").listFiles()
+                    ?.findAll { it.isDirectory() && new File(it, "apksigner").exists() }
+                    ?.sort()?.last()
+            if (buildToolsLatest != null) {
+                def apksigner = new File(buildToolsLatest, "apksigner").absolutePath
+                def signingConfig = variant.signingConfig
+                if (signingConfig != null) {
+                    exec {
+                        environment JAVA_HOME: System.getProperty("java.home") ?: "${System.env.JAVA_HOME}"
+                        executable apksigner
+                        args "sign",
+                             "--v1-signing-enabled", "true",
+                             "--ks", signingConfig.storeFile.absolutePath,
+                             "--ks-pass", "pass:${signingConfig.storePassword}",
+                             "--key-pass", "pass:${signingConfig.keyPassword}",
+                             "--ks-key-alias", signingConfig.keyAlias,
+                             origApk.absolutePath
+                    }
+                    logger.lifecycle("Re-signed ${origApk.name} after 16KB page alignment")
+                } else {
+                    logger.lifecycle("Re-aligned ${origApk.name} with 16KB page size (no signing config)")
+                }
+            } else {
+                logger.lifecycle("Re-aligned ${origApk.name} with 16KB page size (apksigner not found)")
+            }
+        }
+    }
+    realignTask.configure { dependsOn pkgTask }
+    pkgTask.finalizedBy realignTask
 }

@@ -10,7 +10,6 @@ set(ffmpeg_ci_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../)
 add_library(ffmpegplay SHARED
         ffmpeg_misc.c
         native-lib.cpp
-        binder.c
         cmdutils.c
         ffmpeg.c
         ffmpeg_dec.c
@@ -60,21 +59,12 @@ target_include_directories(ffmpegplay PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/resources
         ${CMAKE_CURRENT_SOURCE_DIR}/compat/stdbit)
 
-# FFmpeg's aarch64/asm.S `movrel` macro emits direct ADRP+ADD (page-relative)
-# for PIC — matching dav1d and FFmpeg upstream. AArch64 lld only accepts such
-# ADRP against non-preemptible symbols, so we bind SO-internal references to
-# local definitions with -Bsymbolic (this is what FFmpeg's own configure does
-# via `test_ldflags -Wl,-Bsymbolic && append SHFLAGS -Wl,-Bsymbolic`).
-#
 # Android 15+ on arm64 requires 16KB page alignment for shared libraries.
-# -z,max-page-size=16384 sets the max page size lld uses for layout.
-# -z,separate-loadable-segments places each LOAD segment on its own
-# page boundary, ensuring both file offset and vaddr are 16KB-aligned
-# (required by mmap on 16KB-page-size kernels).
+# -z,max-page-size=16384 is sufficient for NDK versions that default to 4K.
+# Newer NDK (r26+) defaults to 16KB max-page-size, so this flag is a no-op.
 target_link_options(ffmpegplay PRIVATE
         "-Wl,-Bsymbolic"
         "-Wl,-z,max-page-size=16384"
-        "-Wl,-z,separate-loadable-segments"
         )
 
 target_link_libraries(ffmpegplay
