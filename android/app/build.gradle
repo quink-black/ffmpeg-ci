@@ -11,14 +11,15 @@ if (localPropsFile.exists()) localProps.load(localPropsFile.newDataInputStream()
 def ndkVer = localProps.getProperty('ndk.version')
 
 android {
-    compileSdk 32
+    namespace 'com.example.ffmpegplay'
+    compileSdk 35
 
     if (ndkVer) ndkVersion ndkVer
 
     defaultConfig {
         applicationId "com.example.ffmpegplay"
         minSdk 24
-        targetSdk 32
+        targetSdk 35
         versionCode 1
         versionName "1.0"
 
@@ -42,8 +43,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     externalNativeBuild {
         cmake {
@@ -56,7 +57,7 @@ android {
     // Android 15+ on arm64 devices with 16KB page size requires that .so
     // files inside the APK are stored uncompressed and aligned to 16KB
     // boundaries, so the linker can mmap them directly from the APK.
-    packagingOptions {
+    packaging {
         jniLibs {
             useLegacyPackaging = false
         }
@@ -85,7 +86,7 @@ def zipalignExe = buildToolsDir.listFiles()
         ?: android.sdkDirectory.toString() + "/build-tools/" + android.buildToolsVersion + "/zipalign"
 
 android.applicationVariants.all { variant ->
-    def variantName = variant.name.capitalize()
+    def variantName = variant.name.substring(0, 1).toUpperCase(Locale.ROOT) + variant.name.substring(1)
     def pkgTask = tasks.findByName("package${variantName}")
     if (pkgTask == null) return
 
