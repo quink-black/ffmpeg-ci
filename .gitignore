@@ -26,10 +26,23 @@ build/
 log.txt
 wdblogs/
 
-# CLion / IntelliJ — keep runConfigurations and misc.xml, ignore the rest
-.idea/workspace.xml
-.idea/vcs.xml
-.idea/CopilotChat*.xml
-.idea/*.iml
+# CLion / IntelliJ
+.idea/
 
 ffmpeg-fate-sample/
+
+# CodeBuddy Code per-user data
+.codebuddy/memory/
+.codebuddy/plan/
+.codebuddy/plans/
+.codebuddy/settings.local.json
+
+# Android cross-compilation build artifacts
+android/android/
+android/caches/
+android/daemon/
+android/native/
+android/wrapper/
+
+# cross-compilation install directories
+install-*/
