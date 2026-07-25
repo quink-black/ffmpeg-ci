@@ -19,7 +19,10 @@ while [ $# -gt 0 ]; do
             exit 1
             ;;
         --path)
-            ffmpeg_src=$2
+            case "$2" in
+                /*) ffmpeg_src="$(realpath "$2")" ;;
+                *) ffmpeg_src="$(realpath "${DIR}/$2")" ;;
+            esac
             shift
             ;;
         --enable_opt)

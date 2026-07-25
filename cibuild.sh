@@ -50,6 +50,12 @@ done
 
 source ./env.sh
 
+# Resolve --path to an absolute path anchored at the project root (DIR).
+case "$ffmpeg_src" in
+    /*) ffmpeg_src="$(realpath "$ffmpeg_src")" ;;
+    *) ffmpeg_src="$(realpath "${DIR}/$ffmpeg_src")" ;;
+esac
+
 #./build_lsmash.sh
 #./build_srt.sh
 #./build_vmaf.sh
