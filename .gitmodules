@@ -16,9 +16,6 @@
 [submodule "l-smash"]
 	path = l-smash
 	url = https://github.com/l-smash/l-smash.git
-[submodule "srt"]
-	path = srt
-	url = https://github.com/Haivision/srt.git
 [submodule "x265"]
 	path = x265
 	url = https://bitbucket.org/multicoreware/x265_git.git
