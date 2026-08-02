@@ -249,20 +249,28 @@ fi
 # dnn_classify). Each is optional and independent; the dnn filters build
 # as long as at least one backend is enabled.
 #
-# Neither backend can rely on ffmpeg's pkg-config path here:
+# The two backends need different detection strategies:
 #
-#   - OpenVINO ships an openvino.pc whose Libs.private ends in -lrt, which
-#     does not exist on macOS. Because we pass --pkg-config-flags=--static,
-#     configure pulls Libs.private in and the link dies on 'library rt not
-#     found'. Configure then falls back to a bare `require ... -lopenvino_c`
-#     that has no include path.
-#   - ONNX Runtime has no pkg-config path in configure at all; it probes a
-#     bare onnxruntime_c_api.h with -lonnxruntime, and Homebrew nests that
-#     header under include/onnxruntime/.
+#   - OpenVINO ships an openvino.pc whose Libs.private ends in -lrt,
+#     which does not exist on macOS. Because we pass
+#     --pkg-config-flags=--static, configure pulls Libs.private in and the
+#     link dies on 'library rt not found'. Configure then falls back to a
+#     bare `require ... -lopenvino_c` that has no include path. We verify
+#     the library really links via pkg-config's non-static libs, then hand
+#     configure the -I/-L it needs so its fallback probe succeeds.
 #
-# In both cases the fix is the same: verify the library really links using
-# the non-static libs, then hand configure the -I/-L it needs so its
-# fallback probe succeeds.
+#   - ONNX Runtime: ffmpeg's configure probes with a bare
+#       require libonnxruntime onnxruntime_c_api.h OrtGetApiBase -lonnxruntime
+#     i.e. no pkg-config. The official Linux tarball DOES ship a
+#     libonnxruntime.pc, but it is hardcoded to prefix=/usr/local with
+#     libdir=${prefix}/lib64 and includedir=${prefix}/include/onnxruntime
+#     -- none of which match the tarball's own flat include/ layout, an
+#     install/ layout, or anything short of a system `make install`. So
+#     pkg-config is useless here. We mirror configure's probe directly:
+#     compile+link the real symbol against candidate -I/-L paths, then
+#     hand the working paths to configure via --extra-cflags/
+#     --extra-ldflags. install_onnxruntime.sh is the companion script
+#     that puts the flat headers/libs under install/.
 probe_dnn_backend() {
     local mod="$1"
     local header="$2"
@@ -290,11 +298,64 @@ if grep -q -- '--enable-libopenvino ' "${ffmpeg_src}/configure" \
     extra_ldflags+=" $(pkg-config --libs-only-L openvino)"
 fi
 
-if grep -q -- '--enable-libonnxruntime ' "${ffmpeg_src}/configure" \
-   && probe_dnn_backend libonnxruntime onnxruntime_c_api.h OrtGetApiBase; then
-    extra_config+=" --enable-libonnxruntime"
-    extra_cflags+=" $(pkg-config --cflags-only-I libonnxruntime)"
-    extra_ldflags+=" $(pkg-config --libs-only-L libonnxruntime)"
+# ONNX Runtime: no pkg-config. The shipped .pc has wrong paths for any
+# non-/usr/local install, so probe the real symbol directly against
+# candidate include/lib paths. Returns "inc_dir\nlib_dir" on success.
+# ffmpeg's own configure check is `require libonnxruntime
+# onnxruntime_c_api.h OrtGetApiBase -lonnxruntime`, which this mirrors.
+probe_onnxruntime() {
+    local tmp inc_dir lib_dir
+    tmp=$(mktemp -d) || return 1
+    printf '#include <onnxruntime_c_api.h>\nint main(void){return !OrtGetApiBase;}\n' \
+        > "$tmp/t.c"
+    # Flat include/ first (official Linux tarball + install/ layout),
+    # then nested include/onnxruntime/ (macOS Homebrew, and what the
+    # broken .pc claims). Covers all realistic install locations.
+    local inc_dirs=(
+        "${install_dir}/include"
+        "/usr/local/include"
+        "${install_dir}/include/onnxruntime"
+        "/usr/local/include/onnxruntime"
+        "/opt/homebrew/include/onnxruntime"
+    )
+    local lib_dirs=(
+        "${install_dir}/lib"
+        "/usr/local/lib"
+        "/usr/local/lib64"
+        "/opt/homebrew/lib"
+        "/usr/lib/x86_64-linux-gnu"
+    )
+    for inc_dir in "${inc_dirs[@]}"; do
+        [ -f "${inc_dir}/onnxruntime_c_api.h" ] || continue
+        for lib_dir in "${lib_dirs[@]}"; do
+            { [ -e "${lib_dir}/libonnxruntime.so" ] || [ -e "${lib_dir}/libonnxruntime.a" ]; } || continue
+            # Link with CXX to pull in libstdc++ automatically (onnxruntime
+            # is a C++ library; ffmpeg configure links via --ld=${CXX}).
+            # shellcheck disable=SC2086
+            if ${CXX:-c++} -I"${inc_dir}" "$tmp/t.c" -o "$tmp/t" \
+                       -L"${lib_dir}" -lonnxruntime >/dev/null 2>&1; then
+                rm -rf "$tmp"
+                printf '%s\n%s\n' "${inc_dir}" "${lib_dir}"
+                return 0
+            fi
+        done
+    done
+    rm -rf "$tmp"
+    return 1
+}
+
+if grep -q -- '--enable-libonnxruntime ' "${ffmpeg_src}/configure"; then
+    if ort=$(probe_onnxruntime); then
+        ort_inc=${ort%%$'\n'*}
+        ort_lib=${ort#*$'\n'}
+        extra_config+=" --enable-libonnxruntime"
+        # extra_cflags already has -I${install_dir}/include and configure
+        # already gets -L${install_dir}/lib via the defaults below; only
+        # inject paths that differ from those to keep the configure line
+        # clean (avoids duplicate -I/-L for the common install/ case).
+        [ "${ort_inc}" = "${install_dir}/include" ] || extra_cflags+=" -I${ort_inc}"
+        [ "${ort_lib}" = "${install_dir}/lib" ] || extra_ldflags+=" -L${ort_lib}"
+    fi
 fi
 
 # ---------------------------------------------------------------------------
