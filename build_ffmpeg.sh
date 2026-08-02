@@ -245,6 +245,58 @@ if pkg-config --exists libdrm; then
     extra_config+=" --enable-libdrm"
 fi
 
+# Group F — DNN backends for libavfilter/dnn (dnn_processing, dnn_detect,
+# dnn_classify). Each is optional and independent; the dnn filters build
+# as long as at least one backend is enabled.
+#
+# Neither backend can rely on ffmpeg's pkg-config path here:
+#
+#   - OpenVINO ships an openvino.pc whose Libs.private ends in -lrt, which
+#     does not exist on macOS. Because we pass --pkg-config-flags=--static,
+#     configure pulls Libs.private in and the link dies on 'library rt not
+#     found'. Configure then falls back to a bare `require ... -lopenvino_c`
+#     that has no include path.
+#   - ONNX Runtime has no pkg-config path in configure at all; it probes a
+#     bare onnxruntime_c_api.h with -lonnxruntime, and Homebrew nests that
+#     header under include/onnxruntime/.
+#
+# In both cases the fix is the same: verify the library really links using
+# the non-static libs, then hand configure the -I/-L it needs so its
+# fallback probe succeeds.
+probe_dnn_backend() {
+    local mod="$1"
+    local header="$2"
+    local symbol="$3"
+    pkg-config --exists "$mod" 2>/dev/null || return 1
+    local cflags libs tmp
+    cflags=$(pkg-config --cflags "$mod" 2>/dev/null) || return 1
+    libs=$(pkg-config --libs "$mod" 2>/dev/null) || return 1
+    tmp=$(mktemp -d) || return 1
+    printf '#include <%s>\nint main(void){return !%s;}\n' "$header" "$symbol" \
+        > "$tmp/t.c"
+    # shellcheck disable=SC2086
+    if ${CC:-cc} $cflags "$tmp/t.c" -o "$tmp/t" $libs >/dev/null 2>&1; then
+        rm -rf "$tmp"
+        return 0
+    fi
+    rm -rf "$tmp"
+    return 1
+}
+
+if grep -q -- '--enable-libopenvino ' "${ffmpeg_src}/configure" \
+   && probe_dnn_backend openvino openvino/c/openvino.h ov_core_create; then
+    extra_config+=" --enable-libopenvino"
+    extra_cflags+=" $(pkg-config --cflags-only-I openvino)"
+    extra_ldflags+=" $(pkg-config --libs-only-L openvino)"
+fi
+
+if grep -q -- '--enable-libonnxruntime ' "${ffmpeg_src}/configure" \
+   && probe_dnn_backend libonnxruntime onnxruntime_c_api.h OrtGetApiBase; then
+    extra_config+=" --enable-libonnxruntime"
+    extra_cflags+=" $(pkg-config --cflags-only-I libonnxruntime)"
+    extra_ldflags+=" $(pkg-config --libs-only-L libonnxruntime)"
+fi
+
 # ---------------------------------------------------------------------------
 # ASAN
 # ---------------------------------------------------------------------------
