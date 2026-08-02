@@ -1,0 +1,8 @@
+# Generated ONNX models (created by prepare_models.sh)
+models/
+
+# Python venv for model generation
+.venv/
+
+# Build artifacts go under ../../build/ which is already gitignored at
+# the project root. Nothing else here needs ignoring.
