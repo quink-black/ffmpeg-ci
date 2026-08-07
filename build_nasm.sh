@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set +e
+set -e
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 build_dir=${DIR}/build
