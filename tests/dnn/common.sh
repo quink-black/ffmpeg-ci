@@ -15,6 +15,14 @@
 DNN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${DNN_DIR}/../.." && pwd)"
 
+# Prefer the project-local venv created by prepare_models.sh (it has
+# numpy + Pillow); fall back to system python3.
+if [ -x "${DNN_DIR}/.venv/bin/python" ]; then
+    DNN_PY="${DNN_DIR}/.venv/bin/python"
+else
+    DNN_PY="python3"
+fi
+
 FFMPEG_BIN="${FFMPEG_BIN:-${PROJECT_DIR}/build/ffmpeg/ffmpeg -hide_banner}"
 MODELS_DIR="${DNN_DIR}/models"
 OUT_BASE="${PROJECT_DIR}/build/test/dnn"
@@ -64,7 +72,7 @@ dnn_run() {
 
 # dnn_stats <png>  -> "mean=<f> var=<f>" (RGB, normalized 0-1)
 dnn_stats() {
-    python3 - "$1" <<'PY'
+    "${DNN_PY}" - "$1" <<'PY'
 import sys
 from PIL import Image
 import numpy as np
@@ -75,7 +83,7 @@ PY
 
 # dnn_dims <png>  -> "W H"
 dnn_dims() {
-    python3 - "$1" <<'PY'
+    "${DNN_PY}" - "$1" <<'PY'
 import sys
 from PIL import Image
 im = Image.open(sys.argv[1])

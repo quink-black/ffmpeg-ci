@@ -315,6 +315,7 @@ probe_onnxruntime() {
         "${install_dir}/include"
         "/usr/local/include"
         "${install_dir}/include/onnxruntime"
+        "${install_dir}/include/onnxruntime/core/session"
         "/usr/local/include/onnxruntime"
         "/opt/homebrew/include/onnxruntime"
     )

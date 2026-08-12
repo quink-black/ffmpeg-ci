@@ -38,7 +38,7 @@ else
     echo "==> Creating venv at ${VENV}"
     python3 -m venv "${VENV}"
     "${VENV}/bin/pip" install --quiet --upgrade pip
-    "${VENV}/bin/pip" install --quiet onnx
+    "${VENV}/bin/pip" install --quiet onnx pillow
 fi
 
 echo "==> Generating models into ${MODELS}"
