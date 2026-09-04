@@ -45,20 +45,6 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-# nasm is only required for x86 builds (it provides x86-specific assembly
-# helpers). On ARM/aarch64 targets skip it entirely — building nasm there
-# either fails to link (wrong-arch objects in the submodule) or is unused,
-# and a silent failure must not jeopardize the rest of the build.
-build_arch="$(uname -m)"
-case "$build_arch" in
-    x86_64|i?86|amd64)
-        ./build_nasm.sh
-        ;;
-    *)
-        echo "skip nasm build on non-x86 arch ($build_arch)"
-        ;;
-esac
-
 source ./env.sh
 
 # Resolve --path to an absolute path anchored at the project root (DIR).

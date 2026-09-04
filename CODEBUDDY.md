@@ -10,7 +10,7 @@ This is an FFmpeg CI build system that compiles FFmpeg's third-party dependencie
 
 All commands run from the project root directory.
 
-**Default to `cibuild.sh` for all builds.** It is the standard entry point: it sources `env.sh`, builds nasm (x86 only) and all third-party libs, then builds FFmpeg. The granular commands below are only for iterating after a successful `cibuild.sh` run.
+**Default to `cibuild.sh` for all builds.** It is the standard entry point: it sources `env.sh`, builds all third-party libs, then builds FFmpeg. The granular commands below are only for iterating after a successful `cibuild.sh` run.
 
 ### Standard build (third-party libs + FFmpeg)
 ```bash
@@ -65,7 +65,7 @@ Three layers, run in order:
 |-------------|-----------|
 | CMake | aom, x265, uavs3d, vulkan_header, vulkan_loader, vvenc, srt, vvdec |
 | Meson (in-tree `meson/meson.py`) | dav1d, cms, libplacebo, vmaf |
-| Autotools/custom configure | x264, nasm, davs2, xavs2, freetype, fontconfig, zimg, lsmash |
+| Autotools/custom configure | x264, davs2, xavs2, freetype, fontconfig, zimg, lsmash |
 
 ## Key Directory Layout
 
