@@ -10,17 +10,13 @@ This is an FFmpeg CI build system that compiles FFmpeg's third-party dependencie
 
 All commands run from the project root directory.
 
-### Full build (third-party libs + FFmpeg)
+**Default to `cibuild.sh` for all builds.** It is the standard entry point: it sources `env.sh`, builds nasm (x86 only) and all third-party libs, then builds FFmpeg. The granular commands below are only for iterating after a successful `cibuild.sh` run.
+
+### Standard build (third-party libs + FFmpeg)
 ```bash
 ./cibuild.sh --path <ffmpeg-src-dir> --enable_opt 0 --skip_test   # debug
 ./cibuild.sh --path <ffmpeg-src-dir> --enable_opt 1 --skip_test   # optimized
 ./cibuild.sh --path <ffmpeg-src-dir> --enable_asan 1 --skip_test  # ASAN
-```
-
-### Rebuild only FFmpeg (fast iteration, skip third-party libs)
-```bash
-source ./env.sh
-./build_ffmpeg.sh --path <ffmpeg-src-dir> --enable_opt 0
 ```
 
 ### Rebuild FFmpeg after code edits (no reconfigure)
@@ -61,7 +57,7 @@ Three layers, run in order:
 
 2. **Makefile** (third-party libs) -- Stamp-file targets at project root (`.aom`, `.x264`, etc.) track which libs are built. Active set: aom, cms (Little-CMS), dav1d, davs2 (non-ARM/non-Msys only), uavs3d, x264, x265, vulkan_header, vulkan_loader, libplacebo, vvenc. All install into `install/`.
 
-3. **build_ffmpeg.sh** (FFmpeg) -- Auto-detects available libraries via pkg-config and ffmpeg's configure script, then configures and builds FFmpeg. Output goes to `build/ffmpeg/`, `build/ffmpeg_opt/`, or `build/ffmpeg_asan/`.
+3. **build_ffmpeg.sh** (FFmpeg, internal) -- Invoked by `cibuild.sh`, not meant to be called directly. Auto-detects available libraries via pkg-config and ffmpeg's configure script, then configures and builds FFmpeg. Output goes to `build/ffmpeg/`, `build/ffmpeg_opt/`, or `build/ffmpeg_asan/`.
 
 ## Third-Party Library Build Systems
 
@@ -100,7 +96,7 @@ Windows builds use `win/build.bat` (finds VS, loads vcvars64) then `win/build.sh
 
 ## Important Behavior Notes
 
-- `build_ffmpeg.sh` resolves `SCRIPT_DIR` so it can run standalone, not only via `cibuild.sh`.
+- `build_ffmpeg.sh` is an internal implementation detail invoked by `cibuild.sh`. It resolves `SCRIPT_DIR` so cibuild.sh can call it regardless of the caller's working directory; do not invoke it directly.
 - `build_ffmpeg.sh` auto-detects available libraries -- adding a new library to the Makefile install set is usually sufficient; no need to edit the FFmpeg configure flags manually for auto-detected libs.
 - FFmpeg source is NOT in this repo; it lives at the path passed via `--path` (default `../ffmpeg`).
 - `--enable-rpath` is always set, so binaries embed the library path. Sourcing `env.sh` is still needed for tools that don't use rpath.
