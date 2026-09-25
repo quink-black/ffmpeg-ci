@@ -230,6 +230,12 @@ fi
 # independent of Vulkan).
 if pkg-config --exists vulkan; then
     extra_config+=" --enable-vulkan"
+    # configure settles on glslc if it merely exists; shaderc's glslc (2023.8)
+    # rejects --target-env=vulkan1.4, leaving GLSLCFLAGS empty and shaders
+    # building for SPIR-V 1.0. glslang accepts configure's flags.
+    if command -v glslangValidator >/dev/null 2>&1; then
+        extra_config+=" --glslc=glslangValidator"
+    fi
     if grep -q -- '--enable-libshaderc ' "${ffmpeg_src}/configure" \
        && pkg-config --exists shaderc; then
         extra_config+=" --enable-libshaderc"
