@@ -297,7 +297,13 @@ probe_dnn_backend() {
     return 1
 }
 
+# OpenVINO transitively loads oneTBB, whose static-init singleton
+# destructor crashes (SEGV at exit in __cxa_finalize_ranges) in every
+# ASan-instrumented binary that links it; the abort happens after all
+# work completes, so it poisons every process exit code. Keep OpenVINO
+# out of ASan builds, as with OpenCV above.
 if grep -q -- '--enable-libopenvino ' "${ffmpeg_src}/configure" \
+   && [ "$enable_asan" -eq 0 ] \
    && probe_dnn_backend openvino openvino/c/openvino.h ov_core_create; then
     extra_config+=" --enable-libopenvino"
     extra_cflags+=" $(pkg-config --cflags-only-I openvino)"
