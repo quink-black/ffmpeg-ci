@@ -245,6 +245,11 @@ fi
 if grep -q -- '--enable-libplacebo ' "${ffmpeg_src}/configure" \
    && pkg-config --exists libplacebo "libplacebo >= 4.192.0"; then
     extra_config+=" --enable-libplacebo"
+    # Without a glslang .pc file libplacebo lists its glslang import
+    # libraries by absolute path. configure puts only -l flags after the
+    # objects, so repeat the paths in --extra-libs or the link fails on
+    # undefined glslang symbols.
+    extra_libs+=" $(pkg-config --libs libplacebo | tr ' ' '\n' | grep -v '^-' | tr '\n' ' ')"
 fi
 
 if pkg-config --exists libdrm; then
@@ -431,6 +436,14 @@ fi
 
 mkdir -p "${ffmpeg_build}"
 pushd "${ffmpeg_build}" > /dev/null
+
+# A native Windows ffmpeg.exe only translates an MSYS path that is a whole
+# argument, so /c/... inside concat: or movie= is not found, while rsync
+# reads C:/... as a remote host. A path relative to the build directory,
+# where FATE runs, is valid for both.
+if [ -n "${MSYSTEM}" ]; then
+    fate_samples="$(realpath -m --relative-to=. "${fate_samples}")"
+fi
 
 ignore_tests_arg=""
 if [ -n "${skip_test_case}" ]; then
