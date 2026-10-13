@@ -64,6 +64,8 @@ Build systems: CMake (aom, x265, uavs3d, vulkan_*, vvenc), meson (dav1d, cms, li
 | `hm_ffmpeg.sh` | HarmonyOS arm64 | `OHOS_SDK_NATIVE` |
 | `win/build.bat` -> `win/build.sh` | Windows x64 (MSVC, MSYS2, vcpkg) | see `win/README.md` |
 
+To verify FFmpeg on an Android phone (debug app driven through `adb`), read `android/AGENTS.md`.
+
 ## Tests
 
 - FATE: run through `cibuild.sh` (builds, then `make fate-rsync && make fate`). `win-run-fate.sh` is a standalone Windows ASAN FATE job.

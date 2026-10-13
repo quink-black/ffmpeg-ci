@@ -10,10 +10,9 @@ import android.util.Log;
  * automated tests can drive FFmpeg without the IME. Only registered in
  * debug builds via the debug AndroidManifest; never ships in release.
  *
- * Usage:
- *   adb shell am broadcast \
- *       -n com.example.ffmpegplay/.DebugFFmpegReceiver \
- *       -e cmd "ffmpeg -version"
+ * Usage (the app must already be running; see android/AGENTS.md):
+ *   adb shell "am broadcast -a com.example.ffmpegplay.DEBUG_RUN_FFMPEG \
+ *       -p com.example.ffmpegplay -e cmd 'ffmpeg -i in.mp4 -f null -'"
  * The command runs on the FFmpeg executor thread; results go to logcat
  * under the FFmpeg tag (see FFmpeg.runFFmpegCmd).
  */
