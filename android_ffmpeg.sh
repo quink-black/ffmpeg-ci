@@ -18,7 +18,7 @@ ffmpeg_src="${DIR}/../ffmpeg"
 do_install=1
 arch="arm64"
 api=21
-enable_opt=0
+enable_opt=1
 enable_x264=0
 enable_x265=0
 enable_vulkan=0
@@ -36,7 +36,7 @@ while [ $# -gt 0 ]; do
             echo "  --arch ARCH          CPU architecture: arm, arm64 (default: arm64)"
             echo "  --api LEVEL          Android API level (default: 21)"
             echo "  --install            Install after build (default: on)"
-            echo "  --enable_opt 0|1     Enable optimizations (debug build if 0)"
+            echo "  --enable_opt 0|1     Enable optimizations (default: 1, debug build if 0)"
             echo "  --enable_x264 0|1    Build and enable libx264"
             echo "  --enable_x265 0|1    Build and enable libx265"
             echo "  --enable_vulkan 0|1  Build with Vulkan, libplacebo and libshaderc (default: 0)"
