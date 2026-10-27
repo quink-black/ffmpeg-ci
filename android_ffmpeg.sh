@@ -17,9 +17,11 @@ source "${DIR}/env.sh"
 ffmpeg_src="${DIR}/../ffmpeg"
 do_install=1
 arch="arm64"
+api=21
 enable_opt=0
 enable_x264=0
 enable_x265=0
+enable_vulkan=0
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -32,10 +34,12 @@ while [ $# -gt 0 ]; do
             echo "Options:"
             echo "  --path DIR           FFmpeg source directory (default: ../ffmpeg)"
             echo "  --arch ARCH          CPU architecture: arm, arm64 (default: arm64)"
+            echo "  --api LEVEL          Android API level (default: 21)"
             echo "  --install            Install after build (default: on)"
             echo "  --enable_opt 0|1     Enable optimizations (debug build if 0)"
             echo "  --enable_x264 0|1    Build and enable libx264"
             echo "  --enable_x265 0|1    Build and enable libx265"
+            echo "  --enable_vulkan 0|1  Build with Vulkan, libplacebo and libshaderc (default: 0)"
             exit 0
             ;;
         --path)
@@ -47,6 +51,11 @@ while [ $# -gt 0 ]; do
             ;;
         --arch)
             arch="$2"
+            shift
+            ;;
+        --api)
+            api="$2"
+            echo "api ${api}"
             shift
             ;;
         --enable_opt)
@@ -62,6 +71,11 @@ while [ $# -gt 0 ]; do
         --enable_x265)
             enable_x265="$2"
             echo "enable_x265 ${enable_x265}"
+            shift
+            ;;
+        --enable_vulkan)
+            enable_vulkan="$2"
+            echo "enable_vulkan ${enable_vulkan}"
             shift
             ;;
         *)
@@ -96,13 +110,13 @@ if [ "$arch" = "arm" ]; then
     ANDROID_ABI="armeabi-v7a"
     TARGET=armv7a-linux-androideabi
     CPU=armv7-a
-    API=24
+    API="${api}"
     TERMUX_ARCH="arm"
 elif [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
     ANDROID_ABI="aarch64"
     TARGET=aarch64-linux-android
     CPU=armv8-a
-    API=24
+    API="${api}"
     TERMUX_ARCH="${ANDROID_ABI}"
 else
     echo "Unknown arch ${arch}"
@@ -122,9 +136,14 @@ export STRINGS="${TOOLCHAIN}/bin/llvm-strings"
 export CROSS_PREFIX="${TARGET}-"
 export HOST="${TARGET}"
 
-export CFLAGS="-I${DIR}/vulkan_header/include -I/home/quink/work/shaderc/third_party/spirv-headers/include"
-export LDFLAGS="-L${DIR}/prebuilt_android/${ANDROID_ABI} -lshaderc -lvulkan"
-export PKG_CONFIG_PATH="${DIR}/prebuilt_android/${ANDROID_ABI}/pkgconfig:${install_dir}/lib/pkgconfig"
+export CFLAGS=""
+export LDFLAGS=""
+export PKG_CONFIG_PATH="${install_dir}/lib/pkgconfig"
+if [ "${enable_vulkan}" -eq 1 ]; then
+    export CFLAGS="-I${DIR}/vulkan_header/include -I/home/quink/work/shaderc/third_party/spirv-headers/include"
+    export LDFLAGS="-L${DIR}/prebuilt_android/${ANDROID_ABI} -lshaderc -lvulkan"
+    export PKG_CONFIG_PATH="${DIR}/prebuilt_android/${ANDROID_ABI}/pkgconfig:${install_dir}/lib/pkgconfig"
+fi
 export PKG_CONFIG=pkg-config
 
 if which ccache >/dev/null 2>&1; then
@@ -137,24 +156,26 @@ fi
 # ---------------------------------------------------------------------------
 mkdir -p "${build_dir}"
 
-source "${DIR}/setup_meson.sh"
-termux_setup_meson
+if [ "${enable_vulkan}" -eq 1 ]; then
+    source "${DIR}/setup_meson.sh"
+    termux_setup_meson
 
-# libplacebo (always built for Android)
-pushd "${DIR}/libplacebo" > /dev/null
-"${DIR}/meson/meson.py" setup \
-    "${build_dir}/libplacebo-${ANDROID_ABI}" \
-    --cross-file "${TERMUX_MESON_CROSSFILE}" \
-    -Ddefault_library=static \
-    -Ddemos=false \
-    --prefix="${install_dir}" \
-    --libdir="${install_dir}/lib"
+    # libplacebo requires Vulkan and is only built along with it
+    pushd "${DIR}/libplacebo" > /dev/null
+    "${DIR}/meson/meson.py" setup \
+        "${build_dir}/libplacebo-${ANDROID_ABI}" \
+        --cross-file "${TERMUX_MESON_CROSSFILE}" \
+        -Ddefault_library=static \
+        -Ddemos=false \
+        --prefix="${install_dir}" \
+        --libdir="${install_dir}/lib"
 
-ninja -C "${build_dir}/libplacebo-${ANDROID_ABI}" install
-# Patch libplacebo.pc to include transitive deps that meson omits
-sed -i 's/Libs.*$/Libs: -L${libdir} -lplacebo -lm -pthread -ldl -lvulkan/' \
-    "${install_dir}/lib/pkgconfig/libplacebo.pc"
-popd > /dev/null
+    ninja -C "${build_dir}/libplacebo-${ANDROID_ABI}" install
+    # Patch libplacebo.pc to include transitive deps that meson omits
+    sed -i 's/Libs.*$/Libs: -L${libdir} -lplacebo -lm -pthread -ldl -lvulkan/' \
+        "${install_dir}/lib/pkgconfig/libplacebo.pc"
+    popd > /dev/null
+fi
 
 if [ "${enable_x264}" -eq 1 ]; then
     # x264's configure rejects the Android strip; use a no-op during build
@@ -176,7 +197,7 @@ if [ "${enable_x265}" -eq 1 ]; then
         -DENABLE_SHARED=OFF \
         -DANDROID_ABI="${ANDROID_ABI}" \
         -DANDROID_STL=c++_static \
-        -DANDROID_PLATFORM=android-21 \
+        -DANDROID_PLATFORM="android-${api}" \
         -B "${build_dir}/x265"
     popd > /dev/null
 
@@ -188,14 +209,16 @@ fi
 # ---------------------------------------------------------------------------
 extra_config=""
 
-# Vulkan and shaderc are always available via prebuilt Android libs
-extra_config+=" --enable-vulkan"
-if grep -q -- '--enable-libshaderc ' "${FFMPEG_SRC}/configure"; then
-    extra_config+=" --enable-libshaderc"
-fi
+if [ "${enable_vulkan}" -eq 1 ]; then
+    # Vulkan and shaderc are available via the prebuilt Android libs
+    extra_config+=" --enable-vulkan"
+    if grep -q -- '--enable-libshaderc ' "${ffmpeg_src}/configure"; then
+        extra_config+=" --enable-libshaderc"
+    fi
 
-# libplacebo was built above; always enable it
-extra_config+=" --enable-libplacebo"
+    # libplacebo was built above
+    extra_config+=" --enable-libplacebo"
+fi
 
 if [ "${enable_x264}" -eq 1 ]; then
     extra_config+=" --enable-libx264"
