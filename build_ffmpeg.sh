@@ -37,7 +37,7 @@ while [ $# -gt 0 ]; do
             echo "  --test               Run FATE tests after build"
             echo "  --install            Install after build"
             echo "  --skip_test_case T   Skip FATE test cases (comma-separated)"
-            echo "  --enable_asan 0|1    Enable address sanitizer"
+            echo "  --enable_asan 0|1    Enable address sanitizer (disables Vulkan when an NVIDIA ICD is present)"
             echo "  --enable_opt 0|1     Enable optimizations (debug build if 0)"
             exit 0
             ;;
@@ -226,9 +226,42 @@ if grep -q -- '--enable-libzimg ' "${ffmpeg_src}/configure" \
     extra_config+=" --enable-libzimg"
 fi
 
+# NVIDIA's proprietary Vulkan ICD cannot create a device inside an
+# ASan-instrumented process: vkCreateDevice fails with
+# VK_ERROR_INITIALIZATION_FAILED, and the failed probe leaves libdbus
+# allocations that LeakSanitizer reports at exit, turning a hardware
+# probe that should skip into a FATE failure. macOS and Intel/Mesa ICDs
+# do not hit this path.
+has_nvidia_vulkan_icd() {
+    local dir f
+    for dir in \
+        "${XDG_DATA_HOME:-${HOME}/.local/share}/vulkan/icd.d" \
+        /usr/local/share/vulkan/icd.d \
+        /usr/share/vulkan/icd.d \
+        /etc/vulkan/icd.d; do
+        for f in "$dir"/*.json; do
+            [ -f "$f" ] || continue
+            if grep -q 'libGLX_nvidia' "$f"; then
+                return 0
+            fi
+        done
+    done
+    return 1
+}
+
+if [ "$enable_asan" -eq 1 ] && has_nvidia_vulkan_icd; then
+    enable_vulkan=0
+    echo "ASan build: Vulkan disabled (NVIDIA Vulkan ICD conflicts with ASan)"
+else
+    enable_vulkan=1
+fi
+
 # Group E — Vulkan and related (de-nested: libdrm and libplacebo are
 # independent of Vulkan).
-if pkg-config --exists vulkan; then
+if [ "$enable_vulkan" -eq 0 ]; then
+    # configure autodetects Vulkan, so an explicit disable is required.
+    extra_config+=" --disable-vulkan"
+elif pkg-config --exists vulkan; then
     extra_config+=" --enable-vulkan"
     # configure settles on glslc if it merely exists; shaderc's glslc (2023.8)
     # rejects --target-env=vulkan1.4, leaving GLSLCFLAGS empty and shaders

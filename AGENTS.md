@@ -19,6 +19,8 @@ Run everything from the repo root. `cibuild.sh` is the entry point: it sources `
 ./cibuild.sh --path <ffmpeg-src> --skip_test_case "t1,t2"     # FATE, skipping tests
 ```
 
+An ASAN build passes `--disable-vulkan` only when an NVIDIA Vulkan ICD is present: that ICD cannot create a device in an ASan-instrumented process. macOS and Intel/Mesa drivers are unaffected, so ASAN builds there keep Vulkan and its FATE tests.
+
 After a successful `cibuild.sh`, iterate without reconfiguring:
 
 ```bash
