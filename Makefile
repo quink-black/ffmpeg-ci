@@ -174,13 +174,47 @@ x264_build := ${build_dir}/x264
 
 x265_src := ${DIR}/x265/source
 x265_build := ${build_dir}/x265
+# A default configure yields an 8-bit-only libx265, and FFmpeg's libx265
+# wrapper exposes 10/12-bit pixel formats only when x265_api_get(10) and
+# x265_api_get(12) resolve. Build the three depth variants like x265's own
+# build/linux/multilib.sh and merge them into one archive: EXPORT_C_API=OFF
+# puts the 10/12-bit symbols in the x265_10bit/x265_12bit namespaces, and
+# the 8-bit build links them via EXTRA_LIB/LINKED_10BIT/LINKED_12BIT so its
+# x265_api_get() dispatches to all three depths.
+x265_flags := \
+	-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+	-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} \
+	-DENABLE_SHARED=OFF
+# GNU ar merges archives through an MRI script; macOS has no GNU ar, so use
+# libtool -static there.
+ifeq ($(shell uname -s),Darwin)
+x265_merge := libtool -static -o libx265.a libx265_main.a libx265_main10.a libx265_main12.a
+else
+x265_merge := printf 'CREATE libx265.a\nADDLIB libx265_main.a\nADDLIB libx265_main10.a\nADDLIB libx265_main12.a\nSAVE\nEND\n' | ar -M
+endif
 .x265: ${x265_src}
-	cd $< && cmake -B ${x265_build} \
-		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-		-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} \
-		-DENABLE_SHARED=OFF && \
-		cmake --build ${x265_build} && \
-		cmake --install ${x265_build}
+	# 8bit/libx265.a left by an earlier merge already holds all three
+	# depths; merging it again would fold the archive into itself.
+	rm -Rf ${x265_build}
+	cd ${x265_src} && \
+		cmake -B ${x265_build}/12bit ${x265_flags} -DENABLE_CLI=OFF \
+			-DHIGH_BIT_DEPTH=ON -DMAIN12=ON -DEXPORT_C_API=OFF && \
+		cmake --build ${x265_build}/12bit && \
+		cmake -B ${x265_build}/10bit ${x265_flags} -DENABLE_CLI=OFF \
+			-DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF && \
+		cmake --build ${x265_build}/10bit && \
+		mkdir -p ${x265_build}/8bit && \
+		ln -sf ../10bit/libx265.a ${x265_build}/8bit/libx265_main10.a && \
+		ln -sf ../12bit/libx265.a ${x265_build}/8bit/libx265_main12.a && \
+		cmake -B ${x265_build}/8bit ${x265_flags} \
+			-DEXTRA_LIB="x265_main10.a;x265_main12.a" \
+			-DEXTRA_LINK_FLAGS=-L. \
+			-DLINKED_10BIT=ON -DLINKED_12BIT=ON && \
+		cmake --build ${x265_build}/8bit && \
+		cd ${x265_build}/8bit && \
+		mv libx265.a libx265_main.a && \
+		${x265_merge} && \
+		cmake --install ${x265_build}/8bit
 	touch $@
 
 third_party := .aom .cms .dav1d .uavs3d .x264 .x265 .vulkan_header .vulkan_loader .libplacebo .vvenc
