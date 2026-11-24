@@ -1,6 +1,6 @@
-# AGENTS.md (android/)
+# FFmpeg on Android
 
-Guidance for AI coding agents that build and test FFmpeg on an Android phone. Run commands from the `android/` directory unless stated otherwise.
+Build and test FFmpeg on an Android phone. Run commands from the `android/` directory unless stated otherwise.
 
 ## What this is
 

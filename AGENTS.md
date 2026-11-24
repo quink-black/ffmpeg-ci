@@ -64,7 +64,7 @@ Legacy manual helpers and `install_onnxruntime.sh` can supply dependencies from
 | `hm_ffmpeg.sh` | HarmonyOS arm64 | `OHOS_SDK_NATIVE` |
 | `win/build.bat` | Windows x64 with MSVC | Visual Studio, MSYS2 and vcpkg, as described in `win/README.md` |
 
-Read `android/AGENTS.md` before modifying the Android app or verifying FFmpeg
+Read `android/README.md` before modifying the Android app or verifying FFmpeg
 on a phone through adb.
 The cross-compilation helpers use `env.sh` for their build environment.
 

@@ -69,4 +69,4 @@ FFmpeg 会优先使用为本次构建选中的缓存库。可选功能还可以�
 ./cibuild.sh --skip-test-case ffmpeg-fix_sub_duration_heartbeat
 ```
 
-交叉编译脚本包括 `android_ffmpeg.sh`、`emsdk_ffmpeg.sh`、`wasi_ffmpeg.sh` 和 `hm_ffmpeg.sh`。设备和平台的验证流程见各自的说明。[Android 设备验证](android/AGENTS.md)、[Emscripten 验证](emsdk-test/README.md)、[Windows MSVC](win/README.md)、[ONNX DNN 测试](tests/dnn/README.md)
+交叉编译脚本包括 `android_ffmpeg.sh`、`emsdk_ffmpeg.sh`、`wasi_ffmpeg.sh` 和 `hm_ffmpeg.sh`。设备和平台的验证流程见各自的说明。[Android 设备验证](android/README.md)、[Emscripten 验证](emsdk-test/README.md)、[Windows MSVC](win/README.md)、[ONNX DNN 测试](tests/dnn/README.md)
