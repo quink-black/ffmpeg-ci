@@ -222,13 +222,16 @@ def configure_flags(args, source, directory, env, managed, prefixes, samples):
     cflags.extend(f'-I{prefix / "include"}' for prefix in prefixes if (prefix / 'include').is_dir())
     library_dirs = [prefix / name for prefix in prefixes for name in ('lib', 'lib64')
                     if (prefix / name).is_dir()]
-    ldflags.extend(f'-L{path}' for path in library_dirs)
+    # Optional probes can add a legacy prefix containing older managed libraries.
+    managed_library_dirs = [path for path in library_dirs if path.parent in managed.values()]
+    ldflags = [*(f'-L{path}' for path in managed_library_dirs), *ldflags,
+               *(f'-L{path}' for path in library_dirs if path not in managed_library_dirs)]
     cflags.extend(shlex.split(env.get('CPPFLAGS', '')))
     cflags.extend(shlex.split(env.get('CFLAGS', '')))
     ldflags.extend(shlex.split(env.get('LDFLAGS', '')))
     if not WINDOWS:
-        runtime_dirs.extend(library_dirs)
-        ldflags.extend(f'-Wl,-rpath,{path}' for path in dict.fromkeys(runtime_dirs) if path.is_dir())
+        rpath_dirs = dict.fromkeys([*managed_library_dirs, *runtime_dirs, *library_dirs])
+        ldflags.extend(f'-Wl,-rpath,{path}' for path in rpath_dirs if path.is_dir())
     libraries.extend(['-pthread', '-lm'])
     libraries.extend(shlex.split(env.get('LIBS', '')))
 

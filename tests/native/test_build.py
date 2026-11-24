@@ -1,5 +1,6 @@
 import contextlib
 import io
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -89,6 +90,33 @@ class BuildStateTests(unittest.TestCase):
                 self.assertNotEqual(updated, initial)
                 self.assertEqual((initial / 'artifact').read_text(), 'initial source')
                 self.assertEqual((updated / 'artifact').read_text(), 'updated source')
+
+    def test_managed_libraries_precede_optional_probe_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'configure').touch()
+            managed_lib = root / 'managed' / 'lib'
+            optional_lib = root / 'onnxruntime' / 'lib'
+            legacy_lib = root / 'install' / 'lib'
+            library_dirs = [managed_lib, optional_lib, legacy_lib]
+            for path in library_dirs:
+                path.mkdir(parents=True)
+
+            args = SimpleNamespace(profile='debug', no_optional_libs=False,
+                                   skip_test_case='', configure_arg=[])
+            options = ([], [], [f'-L{optional_lib}'], [], [optional_lib], [])
+            managed = {'libplacebo': managed_lib.parent}
+            prefixes = [managed_lib.parent, legacy_lib.parent]
+            with patch.object(ffmpeg, 'external_options', return_value=options):
+                flags, _ = ffmpeg.configure_flags(args, root, root, common.build_environment(),
+                                                  managed, prefixes, root / 'samples')
+
+            ldflags = shlex.split(next(flag.split('=', 1)[1] for flag in flags
+                                      if flag.startswith('--extra-ldflags=')))
+            self.assertEqual(ldflags[:3], [f'-L{path}' for path in library_dirs])
+            if not ffmpeg.WINDOWS:
+                self.assertEqual([flag for flag in ldflags if flag.startswith('-Wl,-rpath,')][-3:],
+                                 [f'-Wl,-rpath,{path}' for path in library_dirs])
 
     def test_worktree_paths_and_configuration_reuse(self):
         def configure(command, *, cwd, env):
