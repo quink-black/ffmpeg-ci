@@ -1,8 +1,5 @@
 from dataclasses import dataclass
 
-from common import DARWIN
-
-
 @dataclass(frozen=True)
 class Dependency:
     source: str
@@ -24,14 +21,6 @@ DEPENDENCIES = {
     'dav1d': Dependency('dav1d', 'meson', ('-Denable_tests=false',),
                         module='dav1d', feature='libdav1d', default=True),
     'davs2': Dependency('davs2', 'davs2', module='davs2', feature='libdavs2', default=True),
-    'freetype': Dependency('freetype-2.12.1.tar.gz', 'cmake',
-                           ('-DFT_DISABLE_HARFBUZZ=TRUE',), module='freetype2',
-                           feature='libfreetype', probes=('zlib', 'libpng', 'bzip2', 'libbrotlidec')),
-    'fontconfig': Dependency('fontconfig-2.13.1.tar.gz', 'configure',
-                             ('--disable-docs', *(('--with-default-fonts=/System/Library/Fonts',
-                                                  '--with-add-fonts=/Library/Fonts') if DARWIN else ())),
-                             requires=('freetype',), module='fontconfig', feature='libfontconfig',
-                             probes=('expat', 'libxml-2.0', 'uuid')),
     'libplacebo': Dependency('libplacebo', 'meson', ('--buildtype=debug',),
                              requires=('cms', 'vulkan_loader'), module='libplacebo',
                              feature='libplacebo', default=True, probes=(

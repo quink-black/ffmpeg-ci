@@ -19,6 +19,8 @@ OPTIONAL_LIBS = (
     ('SvtAv1Enc', 'libsvtav1', False),
     ('libmfx', 'libmfx', False),
     ('libass', 'libass', False),
+    ('freetype2', 'libfreetype', True),
+    ('fontconfig', 'libfontconfig', True),
     ('fribidi', 'libfribidi', False),
     ('harfbuzz', 'libharfbuzz', False),
     ('whisper', 'whisper', True),
@@ -50,7 +52,7 @@ def probe_link(env, directory, *, cflags=(), libraries=(), header=None, symbol=N
     return result.returncode == 0
 
 
-def probe_pkg(env, directory, module, static, header=None, symbol=None):
+def probe_pkg(env, directory, module, static, header=None, symbol=None, ldflags=()):
     if pkg_config(env, '--exists', module).returncode:
         return False
     if not static and not header:
@@ -59,7 +61,8 @@ def probe_pkg(env, directory, module, static, header=None, symbol=None):
     flags = ('--static', '--libs') if static else ('--libs',)
     libraries = pkg_config(env, *flags, module)
     return cflags.returncode == libraries.returncode == 0 and probe_link(
-        env, directory, cflags=shlex.split(cflags.stdout), libraries=shlex.split(libraries.stdout),
+        env, directory, cflags=shlex.split(cflags.stdout),
+        libraries=[*ldflags, *shlex.split(libraries.stdout)],
         header=header, symbol=symbol)
 
 
@@ -125,10 +128,11 @@ def external_options(configure, env, directory, managed, prefixes, asan, optiona
     runtime_dirs = []
     modules = []
 
-    def enable(module, feature, static):
-        if feature in features and probe_pkg(env, directory, module, static):
+    def enable(module, feature, static, search_flags=()):
+        if feature in features and probe_pkg(env, directory, module, static, ldflags=search_flags):
             config.append(f'--enable-{feature}')
             modules.append(module)
+            ldflags.extend(search_flags)
             return True
         return False
 
@@ -141,6 +145,14 @@ def external_options(configure, env, directory, managed, prefixes, asan, optiona
             if (feature != 'libopencv' or not asan) and enable(module, feature, static):
                 if feature == 'openssl':
                     config.append('--enable-nonfree')
+        if (DARWIN and 'libfontconfig' in features and '--enable-libfontconfig' not in config
+                and '-lintl' in shlex.split(pkg_config(env, '--static', '--libs', 'fontconfig').stdout)
+                and shutil.which('brew', path=env['PATH'])):
+            # Homebrew's Fontconfig pkg-config file lists libintl without its library path.
+            gettext = output(['brew', '--prefix', 'gettext'], env=env)
+            if gettext.returncode == 0:
+                enable('fontconfig', 'libfontconfig', True,
+                       [f'-L{Path(gettext.stdout.strip()) / "lib"}'])
         if DARWIN and '--enable-libopencv' in config:
             # Unused OpenCV modules can load a second copy of FFmpeg via videoio.
             ldflags.append('-Wl,-dead_strip_dylibs')

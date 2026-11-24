@@ -48,8 +48,6 @@ def git_files(source):
 
 
 def source_identity(source):
-    if source.is_file():
-        return file_digest(source)
     repo = output(['git', 'rev-parse', '--show-toplevel'], cwd=source)
     if repo.returncode == 0:
         git_root = Path(repo.stdout.strip()).resolve()
@@ -87,15 +85,6 @@ def copy_source(source, destination):
     git_dir = output(['git', 'rev-parse', '--absolute-git-dir'], cwd=source)
     if git_dir.returncode == 0:
         (destination / '.git').write_text(f'gitdir: {git_dir.stdout.strip()}\n', encoding='utf-8')
-
-
-def unpack_source(archive, destination, env):
-    destination.mkdir()
-    run(['tar', '-xf', archive, '-C', destination], env=env)
-    roots = list(destination.iterdir())
-    if len(roots) != 1 or not roots[0].is_dir():
-        raise BuildError(f'{archive} must contain a single source directory')
-    return roots[0]
 
 
 def cmake(source, build_dir, prefix, env, jobs, options):
@@ -141,10 +130,6 @@ def x265(source, build_dir, prefix, env, jobs, options):
 
 def recipe_options(name, dep, env):
     options = list(dep.options)
-    if name == 'fontconfig' and DARWIN:
-        # The old atomic header falls back to 32-bit pointer operations on Apple ARM.
-        cppflags = env.get('CPPFLAGS', '')
-        options.append(f'CPPFLAGS={cppflags} -include AvailabilityMacros.h')
     if name == 'vvdec':
         version = output([*shlex.split(env['CXX']), '--version'], env=env).stdout
         if 'clang' in version.lower():
@@ -180,8 +165,6 @@ def fix_aom_nasm_probe(source):
 
 def build_recipe(name, dep, source, directory, prefix, env, jobs, options, requirements):
     build_dir = directory / 'build'
-    if source.is_file():
-        source = unpack_source(source, directory / 'source', env)
     aom_x86 = name == 'aom' and ARCH in ('x86_64', 'amd64', 'i386', 'i686', 'x86')
     if aom_x86 or dep.backend in ('cmake-copy', 'davs2', 'autogen'):
         copied = directory / 'source'
@@ -217,9 +200,7 @@ def build_recipe(name, dep, source, directory, prefix, env, jobs, options, requi
             run(['./autogen.sh'], cwd=source, env=env)
         build_dir.mkdir()
         run([source / 'configure', f'--prefix={prefix}', *options], cwd=build_dir, env=env)
-        # A cache entry can be installed without scanning the host's fonts.
-        install_options = ('RUN_FC_CACHE_TEST=false',) if name == 'fontconfig' else ()
-        make(env, jobs, build_dir, 'install', *install_options)
+        make(env, jobs, build_dir, 'install')
     else:
         raise BuildError(f'Unknown build backend {dep.backend!r} for {name}')
 
@@ -233,7 +214,7 @@ def resolve(names, env, jobs, *, build=True):
         check = {'cmake': 'CMakeLists.txt', 'cmake-copy': 'CMakeLists.txt', 'x265': 'CMakeLists.txt',
                  'meson': 'meson.build', 'davs2': 'build/linux/configure',
                  'autogen': 'autogen.sh', 'configure': 'configure'}
-        if not source.is_file() and not (source / check[dep.backend]).is_file():
+        if not (source / check[dep.backend]).is_file():
             if not build:
                 continue
             raise BuildError(f'Source for {name} is missing at {source}. Initialize submodules '
@@ -251,8 +232,6 @@ def resolve(names, env, jobs, *, build=True):
             tools.extend(['cmake', 'ninja'])
         elif dep.backend == 'meson':
             tools.extend([sys.executable, 'ninja'])
-        if source.is_file():
-            tools.append('tar')
         meson = None
         if dep.backend == 'meson':
             meson_source = (ROOT / 'meson').resolve()
