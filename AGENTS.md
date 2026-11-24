@@ -6,7 +6,8 @@ Guidance for AI coding agents working in this repository.
 
 Build external libraries and FFmpeg for development, debugging, and FATE. The
 FFmpeg source is selected with `--path` and defaults to `../ffmpeg`. The default
-native profile disables optimizations for debugging.
+native build enables optimizations. Select `--profile debug` for an unoptimized
+build with debug symbols.
 
 ## Native builds
 
@@ -15,7 +16,7 @@ dependencies, runs FFmpeg's configure and GNU Make, and runs FATE by default.
 
 ```bash
 ./cibuild.sh --path ../ffmpeg --skip-test
-./cibuild.sh --path ../ffmpeg --profile release --skip-test
+./cibuild.sh --path ../ffmpeg --profile debug --skip-test
 ./cibuild.sh --path ../ffmpeg --profile asan --no-rsync
 ./cibuild.sh --no-rsync --fate-target fate-aes
 ```

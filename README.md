@@ -11,17 +11,17 @@
 ```bash
 git submodule update --init --recursive
 
-./cibuild.sh --path ../ffmpeg --skip-test
-./cibuild.sh --path ../ffmpeg --profile release --skip-test --install
+./cibuild.sh --path ../ffmpeg --skip-test --install
+./cibuild.sh --path ../ffmpeg --profile debug --skip-test
 ./cibuild.sh --path ../ffmpeg --profile asan --no-rsync
 ```
 
-`debug` 是默认配置，它保留调试信息并关闭优化。`release` 开启优化并保留调试信息。`asan` 和 `asan-release` 分别在这两种配置中启用 AddressSanitizer。如果构建环境使用 NVIDIA Vulkan ICD，ASan 配置会关闭 Vulkan。
+默认的 `release` 配置开启优化并保留调试信息。需要关闭优化时，传入 `--profile debug`。`asan` 和 `asan-release` 分别在 `debug` 和 `release` 配置中启用 AddressSanitizer。如果构建环境使用 NVIDIA Vulkan ICD，ASan 配置会关闭 Vulkan。
 
 入口会在构建结束时打印二进制文件的路径。`--install` 会把 FFmpeg 安装到该构建目录的 `install/` 子目录。脚本或调试器可以用 `--print-build-dir` 查找对应的目录。
 
 ```bash
-out="$(./cibuild.sh --path ../ffmpeg --profile release --print-build-dir)"
+out="$(./cibuild.sh --path ../ffmpeg --print-build-dir)"
 source "$out/runtime.env"
 "$out/ffmpeg" -version
 "$out/ffprobe" -version
@@ -62,7 +62,7 @@ FFmpeg 会优先使用为本次构建选中的缓存库。可选功能还可以�
 
 `./install_onnxruntime.sh` 从微软的 NuGet 包安装 CPU 版 ONNX Runtime 到 `install/`。用 `ONNXRUNTIME_VERSION` 可指定版本。Intel Mac 默认使用仍提供 x86-64 动态库的上游版本。
 
-`make` 和 `make .x264` 等入口会调用同一依赖构建器。`make ffmpeg path=../ffmpeg enable_opt=1` 会构建优化版，`make clean` 会清理所选 FFmpeg 构建的目标文件。旧脚本参数 `--enable_opt`、`--enable_asan` 和 `--skip_test` 仍可用于现有调用。原先直接调用 `build_ffmpeg.sh` 的脚本可以改用 `./cibuild.sh --reuse-deps --skip-test`，并保留原来的构建选项。需要 FATE 时可以去掉 `--skip-test`。
+`make` 和 `make .x264` 等入口会调用同一依赖构建器。`make ffmpeg` 默认构建优化版，指定 `enable_opt=0` 可关闭优化。`make clean` 会清理所选 FFmpeg 构建的目标文件。旧脚本参数 `--enable_opt`、`--enable_asan` 和 `--skip_test` 仍可用于现有调用。原先直接调用 `build_ffmpeg.sh` 的脚本可以改用 `./cibuild.sh --reuse-deps --skip-test`，并保留原来的构建选项。需要 FATE 时可以去掉 `--skip-test`。
 
 单独构建 L-SMASH、SRT、uavs3d、VMAF、vvdec 或 zimg 时，请运行 `./cibuild.sh deps --deps NAME`，其中 `NAME` 取 `list-deps` 列出的名称。SRT 和 zimg 需要在 `third_party/` 下提供相应的源码目录。VMAF 的 Python 模型工具通过其 `python/requirements.txt` 声明 LibSVM 等依赖。安装步骤见 [VMAF Python 文档](third_party/vmaf/resource/doc/python.md)。
 

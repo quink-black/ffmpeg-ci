@@ -15,6 +15,22 @@ import ffmpeg
 
 
 class BuildStateTests(unittest.TestCase):
+    def test_cli_profile_selection(self):
+        cibuild = common.ROOT / 'cibuild.sh'
+        for arguments, profile in (
+            ([], 'release'),
+            (['--profile', 'debug'], 'debug'),
+            (['--enable_opt', '0'], 'debug'),
+            (['--enable_opt', '1'], 'release'),
+            (['--profile', 'asan'], 'asan'),
+            (['--enable_asan', '1'], 'asan-release'),
+            (['--enable_asan', '1', '--enable_opt', '0'], 'asan'),
+        ):
+            with self.subTest(arguments=arguments):
+                directory = subprocess.check_output(
+                    [cibuild, '--print-build-dir', *arguments], text=True).strip()
+                self.assertEqual(Path(directory).parent.name, profile)
+
     def test_dependency_order(self):
         names = dependencies.select('libplacebo,cms,vulkan_loader')
         self.assertEqual(names, ['cms', 'vulkan_header', 'vulkan_loader', 'libplacebo'])

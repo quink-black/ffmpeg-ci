@@ -4,7 +4,7 @@ path ?= ../ffmpeg
 do_test ?=
 skip_test_case ?=
 enable_asan ?= 0
-enable_opt ?= 0
+enable_opt ?= 1
 
 ffmpeg_options = --path "$(path)" --enable_asan "$(enable_asan)" --enable_opt "$(enable_opt)"
 .PHONY: all deps ffmpeg clean FORCE

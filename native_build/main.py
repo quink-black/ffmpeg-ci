@@ -34,7 +34,7 @@ def ffmpeg_options(parser):
     parser.add_argument('--path', default=DEFAULT_SOURCE, metavar='DIR',
                         help='FFmpeg source directory (relative to this repository)')
     parser.add_argument('--profile', choices=PROFILES,
-                        help='debug, release, asan, or asan-release (default: debug)')
+                        help='select a build profile (default: release)')
     parser.add_argument('--variant', default='default', metavar='NAME',
                         help='store an additional configuration for this worktree and profile')
     parser.add_argument('--extra-prefix', type=Path, action='append', default=[],
@@ -102,10 +102,11 @@ def main(argv):
     if args.profile and any(value is not None for value in (args.enable_asan, args.enable_opt)):
         parser.error('--profile cannot be combined with --enable_asan or --enable_opt')
     if not args.profile:
+        optimize = args.enable_opt != 0
         args.profile = {
             (False, False): 'debug', (False, True): 'release',
             (True, False): 'asan', (True, True): 'asan-release',
-        }[bool(args.enable_asan), bool(args.enable_opt)]
+        }[bool(args.enable_asan), optimize]
     if not re.fullmatch(r'[a-z0-9][a-z0-9_.-]{0,63}', args.variant):
         parser.error('--variant must use up to 64 lowercase letters, digits, dots, underscores or hyphens')
     for target in args.fate_target:

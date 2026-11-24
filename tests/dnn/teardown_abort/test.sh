@@ -14,7 +14,7 @@
 #   ./tests/dnn/teardown_abort/test.sh
 #
 # Env:
-#   FFMPEG_BIN  FFmpeg binary to test (default: the native debug build)
+#   FFMPEG_BIN  Override the FFmpeg binary selected by ../common.sh.
 
 set -u
 
