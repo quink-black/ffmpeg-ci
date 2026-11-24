@@ -206,5 +206,5 @@ fi
 # paths are wrong for this layout and would mislead pkg-config consumers.
 echo
 echo "Done. Rebuild FFmpeg with:"
-echo "  source ./env.sh && ./build_ffmpeg.sh --path ../ffmpeg --enable_opt 1"
-echo "build_ffmpeg.sh will auto-detect onnxruntime and pass --enable-libonnxruntime."
+echo "  ./cibuild.sh --path ../ffmpeg --skip-test"
+echo "The build will probe the installed ONNX Runtime headers and library."

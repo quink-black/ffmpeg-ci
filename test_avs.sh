@@ -3,20 +3,29 @@
 set -e
 set -x
 
-ffmpeg_bin="build/ffmpeg/ffmpeg -hide_banner"
+if [ -z "${FFMPEG_BIN:-}" ]; then
+    suffix="${MSYSTEM:+.exe}"
+    if native_build="$(./cibuild.sh --print-build-dir)" &&
+        [ -x "${native_build}/ffmpeg${suffix}" ] && [ -f "${native_build}/runtime.env" ]; then
+        source "${native_build}/runtime.env"
+        FFMPEG_BIN="${native_build}/ffmpeg${suffix}"
+    else
+        FFMPEG_BIN="build/ffmpeg/ffmpeg${suffix}"
+    fi
+fi
 test_dir=build/test
 
-mkdir -p $test_dir
+mkdir -p "$test_dir"
 
 decode_test() {
     ref_md5="$2"
-    out_name="$(mktemp -p ${test_dir} --suffix .md5)"
-    $ffmpeg_bin -vsync 0 -i "$1" -f md5 "${out_name}" -y
+    out_name="$(mktemp "${test_dir}/avs.XXXXXXXX")"
+    "$FFMPEG_BIN" -hide_banner -vsync 0 -i "$1" -f md5 "${out_name}" -y
     result=$(cat "$out_name")
     result=${result#MD5=}
     if [ "$ref_md5" == "$result" ]; then
         echo "Decoding test: Success: $1"
-        rm $out_name
+        rm "$out_name"
     else
         echo "Decoding test: Error: $out_name md5 doesn't match $1, result $result vs reference $ref_md5"
         exit 1

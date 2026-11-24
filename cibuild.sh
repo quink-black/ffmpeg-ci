@@ -1,72 +1,8 @@
 #!/bin/bash
-
 set -e
-
-ffmpeg_src="../ffmpeg"
-skip_test_case=""
-enable_asan=0
-enable_opt=0
-do_test="--test"
-while [ $# -gt 0 ]; do
-    case $1 in
-        --help)
-            echo "Use --path to specify ffmpeg source directory"
-            echo "Use --skip_test_case to skip some test cases, separated by comma"
-            echo "Use --skip_test to skip all test cases"
-            echo "Use --enable_asan 1 to enable address sanitizer (disables Vulkan when an NVIDIA ICD is present)"
-            exit 1
-            ;;
-        --path)
-            ffmpeg_src=$2
-            shift
-            ;;
-        --skip_test)
-            do_test=
-            ;;
-        --skip_test_case)
-            skip_test_case=$2
-            shift
-            ;;
-        --enable_asan)
-            enable_asan=$2
-            echo "enable_asan $enable_asan"
-            shift
-            ;;
-        --enable_opt)
-            enable_opt=$2
-            echo "enable_opt $enable_opt"
-            shift
-            ;;
-        *)
-            echo "Unknown option $1, exit"
-            exit 1
-            ;;
-    esac
-    shift
-done
-
-source ./env.sh
-
-# Resolve --path to an absolute path anchored at the project root (DIR).
-case "$ffmpeg_src" in
-    /*) ffmpeg_src="$(realpath "$ffmpeg_src")" ;;
-    *) ffmpeg_src="$(realpath "${DIR}/$ffmpeg_src")" ;;
-esac
-
-#./build_lsmash.sh
-#./build_srt.sh
-#./build_vmaf.sh
-#./build_vvdec.sh
-#./build_x264.sh
-NPROC=$(nproc 2>/dev/null || sysctl -n hw.logicalcpu)
-make -j${NPROC}
-
-./build_ffmpeg.sh --path $ffmpeg_src \
-    ${do_test} \
-    --skip_test_case "$skip_test_case" \
-    --enable_asan $enable_asan \
-    --enable_opt $enable_opt
-
-if [ -n "$do_test" ]; then
-    : #./test_avs.sh
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+python=python3
+if [ -n "${MSYSTEM:-}" ]; then
+    python=/usr/bin/python3
 fi
+exec "${PYTHON:-${python}}" -B "${root}/native_build/main.py" "$@"

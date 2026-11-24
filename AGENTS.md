@@ -4,71 +4,77 @@ Guidance for AI coding agents working in this repository.
 
 ## Purpose
 
-CI build system that compiles FFmpeg's third-party dependencies and FFmpeg itself for development, debugging, and FATE testing. Builds default to no optimization (`--enable-debug --disable-optimizations`), so they are not meant for production use.
+Build external libraries and FFmpeg for development, debugging, and FATE. The
+FFmpeg source is selected with `--path` and defaults to `../ffmpeg`. The default
+native profile disables optimizations for debugging.
 
-FFmpeg source is not in this repo. It lives at the path given by `--path` (default `../ffmpeg`).
+## Native builds
 
-## Build
-
-Run everything from the repo root. `cibuild.sh` is the entry point: it sources `env.sh`, builds the third-party libs via `make`, then calls `build_ffmpeg.sh` (internal, do not call directly). FATE tests run by default.
-
-```bash
-./cibuild.sh --path <ffmpeg-src> --enable_opt 0 --skip_test   # debug
-./cibuild.sh --path <ffmpeg-src> --enable_opt 1 --skip_test   # optimized
-./cibuild.sh --path <ffmpeg-src> --enable_asan 1 --skip_test  # ASAN
-./cibuild.sh --path <ffmpeg-src> --skip_test_case "t1,t2"     # FATE, skipping tests
-```
-
-An ASAN build passes `--disable-vulkan` only when an NVIDIA Vulkan ICD is present: that ICD cannot create a device in an ASan-instrumented process. macOS and Intel/Mesa drivers are unaffected, so ASAN builds there keep Vulkan and its FATE tests.
-
-After a successful `cibuild.sh`, iterate without reconfiguring:
+`cibuild.sh` is the entry point for native builds. It builds the selected
+dependencies, runs FFmpeg's configure and GNU Make, and runs FATE by default.
 
 ```bash
-source ./env.sh
-make -C build/ffmpeg -j8           # build/ffmpeg_opt or build/ffmpeg_asan for the other variants
-make                               # third-party libs only
-make ffmpeg path=<ffmpeg-src> enable_opt=0   # libs + FFmpeg
+./cibuild.sh --path ../ffmpeg --skip-test
+./cibuild.sh --path ../ffmpeg --profile release --skip-test
+./cibuild.sh --path ../ffmpeg --profile asan --no-rsync
+./cibuild.sh --no-rsync --fate-target fate-aes
 ```
 
-Re-run `cibuild.sh` when configure options change. It deletes and recreates the FFmpeg build directory.
+An ASan build disables Vulkan when it detects an NVIDIA Vulkan ICD. Other Vulkan
+implementations can still run the Vulkan FATE tests.
 
-Run the result with `source ./env.sh` first, then `./build/ffmpeg/ffmpeg` (or `build/ffmpeg_opt/`, `build/ffmpeg_asan/`).
+Use the same command after changing FFmpeg sources to reuse the configuration
+and object files. Run `--print-build-dir` with the same `--path`, `--profile`, and
+`--variant` to locate the build. Source its `runtime.env` if the binary needs
+dependency search paths. For a specific Make target, run GNU Make from that
+build directory.
 
-## Pipeline
+```bash
+out="$(./cibuild.sh --path ../ffmpeg --print-build-dir)"
+source "$out/runtime.env"
+make -C "$out" -j8 tests/checkasm/checkasm
+```
 
-1. `env.sh`: sets `PATH`, `LD_LIBRARY_PATH`, `PKG_CONFIG_PATH`, `CC`/`CXX`, `CFLAGS=-fPIC`, `MACOSX_DEPLOYMENT_TARGET=11.0`, and ccache launcher variables when ccache is installed.
-2. `Makefile`: stamp files (`.aom`, `.x264`, ...) at the repo root record built libs. Active set: aom, cms (Little-CMS), dav1d, uavs3d, x264, x265, vulkan_header, vulkan_loader, libplacebo, vvenc, plus davs2 on non-ARM, non-MSYS hosts. Everything installs into `install/`. `make clean` removes the stamp files only.
-3. `build_ffmpeg.sh`: probes pkg-config and FFmpeg's `configure` for optional libraries, then configures and builds in `build/`. Adding a library to the Makefile set is usually enough; no configure flag edits needed. Always passes `--assert-level=2` and `--enable-rpath`.
+Use `--reconfigure` after changing external tools or SDKs in place. Use
+`--variant NAME` to keep multiple configurations of a worktree and profile.
+`make ffmpeg` and the legacy `--enable_opt`, `--enable_asan`, and `--skip_test`
+flags forward to the native entry point.
 
-Libraries with `Makefile` rules or `build_*.sh` scripts that `cibuild.sh` does not run (xavs2, uavs3e, freetype, fontconfig, lsmash, srt, vmaf, vvdec, zimg, openh264) are built manually.
+## Native dependencies
 
-## Layout
+`native_build/libraries.py` defines the recipes and their dependencies.
+Use `./cibuild.sh list-deps` for the default and optional dependency lists.
+`./cibuild.sh deps --deps NAME` builds a dependency without building FFmpeg.
 
-| Path | Purpose |
-|------|---------|
-| `build/ffmpeg`, `build/ffmpeg_opt`, `build/ffmpeg_asan` | Debug, optimized, ASAN FFmpeg builds |
-| `install/` | Third-party libs, headers, tools |
-| `ffmpeg-fate-sample/` | FATE samples (git-ignored) |
-| `meson/` | Submodule; the in-tree meson used by dav1d, cms, libplacebo |
-| `aom/`, `dav1d/`, `x264/`, `x265/`, ... | Third-party source submodules |
-| `avs2stream/`, `avs3stream/` | AVS2/AVS3 reference streams with MD5s |
-| `tests/dnn/` | ONNX `dnn_processing` filter tests (see its README) |
-
-Build systems: CMake (aom, x265, uavs3d, vulkan_*, vvenc), meson (dav1d, cms, libplacebo), custom configure (x264, davs2, xavs2).
+Each package uses its own build directory and prefix under `build/native/deps`.
+A cache key includes the recipe, source identity, environment, tools, and
+required package keys. The build holds a per-key lock and marks the prefix
+complete after a successful install. FFmpeg adds selected prefixes to its
+discovery paths and can also discover optional libraries through pkg-config.
+Legacy manual helpers and `install_onnxruntime.sh` can supply dependencies from
+`install/`.
 
 ## Other targets
 
-| Script | Target | Requires |
-|--------|--------|----------|
-| `android_ffmpeg.sh` | Android arm64/armv7 | `ANDROID_NDK`; prebuilt Vulkan/shaderc in `prebuilt_android/` |
+| Entry point | Target | Requires |
+|---|---|---|
+| `android_ffmpeg.sh` | Android arm64/armv7 | `ANDROID_NDK` and prebuilt Vulkan/shaderc in `prebuilt_android/` |
 | `wasi_ffmpeg.sh` | wasm32-wasi | `WASI_SDK_PREFIX` |
-| `emsdk_ffmpeg.sh` | wasm32 (`--target node\|chrome`) | `EMSDK` |
+| `emsdk_ffmpeg.sh` | wasm32 for Node or Chrome | `EMSDK` |
 | `hm_ffmpeg.sh` | HarmonyOS arm64 | `OHOS_SDK_NATIVE` |
-| `win/build.bat` -> `win/build.sh` | Windows x64 (MSVC, MSYS2, vcpkg) | see `win/README.md` |
+| `win/build.bat` | Windows x64 with MSVC | Visual Studio, MSYS2 and vcpkg, as described in `win/README.md` |
 
-To verify FFmpeg on an Android phone (debug app driven through `adb`), read `android/AGENTS.md`.
+Read `android/AGENTS.md` before modifying the Android app or verifying FFmpeg
+on a phone through adb.
+The cross-compilation helpers use `env.sh` for their build environment.
 
 ## Tests
 
-- FATE: run through `cibuild.sh` (builds, then `make fate-rsync && make fate`). `win-run-fate.sh` is a standalone Windows ASAN FATE job.
-- `test_avs.sh`: decodes AVS2/AVS3 streams with `build/ffmpeg/ffmpeg` and compares MD5s. Its call in `cibuild.sh` is disabled.
+- Run `python3 -B -m unittest discover -s tests/native` to test the native
+  dependency cache and FFmpeg configuration reuse.
+- FATE uses the shared `ffmpeg-fate-sample/` by default. Use `--samples` or
+  `FATE_SAMPLES` to use another directory and `--no-rsync` to reuse existing
+  samples. `win-run-fate.sh` is a separate Windows ASan job.
+- `test_avs.sh` compares decoded AVS2 and AVS3 samples against reference MD5s.
+  Set `FFMPEG_BIN` to select the binary.
+- `tests/dnn/` contains the ONNX `dnn_processing` tests and setup instructions.

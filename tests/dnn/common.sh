@@ -10,8 +10,6 @@
 #   dnn_pass <msg> / dnn_fail <msg>
 #   dnn_summary <test_name>
 
-# Resolve project root (tests/dnn/../../.. = ffmpeg-ci/).
-# This file is at tests/dnn/common.sh, so ../.. = tests/, ../../.. = root.
 DNN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${DNN_DIR}/../.." && pwd)"
 
@@ -23,7 +21,16 @@ else
     DNN_PY="python3"
 fi
 
-FFMPEG_BIN="${FFMPEG_BIN:-${PROJECT_DIR}/build/ffmpeg/ffmpeg -hide_banner}"
+if [ -z "${FFMPEG_BIN:-}" ]; then
+    suffix="${MSYSTEM:+.exe}"
+    if native_build="$("${PROJECT_DIR}/cibuild.sh" --print-build-dir)" &&
+        [ -x "${native_build}/ffmpeg${suffix}" ] && [ -f "${native_build}/runtime.env" ]; then
+        source "${native_build}/runtime.env"
+        FFMPEG_BIN="${native_build}/ffmpeg${suffix}"
+    else
+        FFMPEG_BIN="${PROJECT_DIR}/build/ffmpeg/ffmpeg${suffix}"
+    fi
+fi
 MODELS_DIR="${DNN_DIR}/models"
 OUT_BASE="${PROJECT_DIR}/build/test/dnn"
 
@@ -31,7 +38,7 @@ dnn_pass_count=0
 dnn_fail_count=0
 
 dnn_have_backend() {
-    $FFMPEG_BIN -buildconf 2>&1 | grep -q -- "--enable-libonnxruntime"
+    "$FFMPEG_BIN" -buildconf 2>&1 | grep -q -- "--enable-libonnxruntime"
 }
 
 dnn_have_models() {
@@ -65,7 +72,7 @@ dnn_run() {
     local log_name="$1"
     shift
     set +e
-    $FFMPEG_BIN -y "$@" > "${dnn_log_dir}/${log_name}.log" 2>&1
+    "$FFMPEG_BIN" -hide_banner -y "$@" > "${dnn_log_dir}/${log_name}.log" 2>&1
     dnn_rc=$?
     set -e
 }

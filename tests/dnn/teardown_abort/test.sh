@@ -14,14 +14,12 @@
 #   ./tests/dnn/teardown_abort/test.sh
 #
 # Env:
-#   FFMPEG_BIN  ffmpeg binary to test (default: build/ffmpeg/ffmpeg)
+#   FFMPEG_BIN  FFmpeg binary to test (default: the native debug build)
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# tests/dnn/teardown_abort -> ../../.. = project root
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
-ffmpeg_bin="${FFMPEG_BIN:-${PROJECT_DIR}/build/ffmpeg/ffmpeg -hide_banner}"
+source "${SCRIPT_DIR}/../common.sh"
 
 test_dir="${PROJECT_DIR}/build/test/dnn_teardown_abort"
 onnx_model="${test_dir}/scale_05.onnx"
@@ -33,7 +31,7 @@ fail=0
 skip=0
 
 have_backend() {
-    $ffmpeg_bin -buildconf 2>&1 | grep -q -- "--enable-libonnxruntime"
+    "$FFMPEG_BIN" -buildconf 2>&1 | grep -q -- "--enable-libonnxruntime"
 }
 
 # Hand-written ONNX model: Mul(input, 0.5) -> output, NCHW float32.
@@ -110,7 +108,7 @@ run_case() {
     local out="${test_dir}/${name}.png"
     shift
     set +e
-    $ffmpeg_bin -y "$@" "${out}" > "${log_dir}/${name}.log" 2>&1
+    "$FFMPEG_BIN" -hide_banner -y "$@" "${out}" > "${log_dir}/${name}.log" 2>&1
     local rc=$?
     set -e
     rm -f "${out}"
@@ -120,7 +118,7 @@ run_case() {
 # Pre-flight: backend must be built in.
 if ! have_backend; then
     echo "SKIP: ffmpeg not built with --enable-libonnxruntime"
-    echo "      build with ./build_ffmpeg.sh after ./install_onnxruntime.sh"
+    echo "      build with ./cibuild.sh --skip-test after ./install_onnxruntime.sh"
     skip=$((skip + 1))
     echo "----"
     echo "teardown_abort: ${pass} passed, ${fail} failed, ${skip} skipped"
