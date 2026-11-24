@@ -77,6 +77,7 @@ Android and HarmonyOS use `cross/build_x264.sh` when `--enable_x264 1` is set.
 - FATE uses the shared `ffmpeg-fate-sample/` by default. Use `--samples` or
   `FATE_SAMPLES` to use another directory and `--no-rsync` to reuse existing
   samples. `win-run-fate.sh` is a separate Windows ASan job.
-- `test_avs.sh` compares decoded AVS2 and AVS3 samples against reference MD5s.
-  Set `FFMPEG_BIN` to select the binary.
+- `test_avs.sh` decodes the standard AVS2 and AVS3 test streams in `tests/avs/`
+  and compares the results against reference MD5s. Set `FFMPEG_BIN` to select
+  an FFmpeg build with both decoders enabled.
 - `tests/dnn/` contains the ONNX `dnn_processing` tests and setup instructions.

@@ -23,10 +23,10 @@
 	path = third_party/davs2
 	url = https://github.com/pkuvcl/davs2.git
 [submodule "avs2stream"]
-	path = avs2stream
+	path = tests/avs/avs2stream
 	url = https://github.com/pkuvcl/avs2stream.git
 [submodule "avs3stream"]
-	path = avs3stream
+	path = tests/avs/avs3stream
 	url = https://github.com/uavs3/avs3stream.git
 [submodule "vvdec"]
 	path = third_party/vvdec

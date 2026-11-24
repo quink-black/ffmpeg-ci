@@ -75,6 +75,8 @@ FFmpeg 会优先使用为本次构建选中的缓存库。可选功能还可以�
 ./cibuild.sh --skip-test-case ffmpeg-fix_sub_duration_heartbeat
 ```
 
+AVS2 和 AVS3 的标准测试流位于 `tests/avs/`。`./test_avs.sh` 解码这些测试流并校验 MD5。可以通过 `FFMPEG_BIN` 指定启用了 AVS2 和 AVS3 解码器的 FFmpeg。
+
 Android、Emscripten、WASI 和 HarmonyOS 的 FFmpeg 构建入口位于 `cross/`。这些脚本以仓库根目录为基准解析相对的 `--path`，并在配置相同时复用已生成的目标文件。`FFMPEG_CI_JOBS` 可以指定编译并行数。HarmonyOS 构建通过 `OHOS_SDK_NATIVE` 指定 SDK。[Android 设备验证](android/README.md)、[Emscripten 验证](emsdk-test/README.md)、[Windows MSVC](win/README.md)、[ONNX DNN 测试](tests/dnn/README.md)
 
 Android 和 HarmonyOS 构建可通过 `--enable_x264 1` 交叉编译 x264。若需要单独构建 WASI 版 OpenH264，请提供支持 WASI 的 OpenH264 源码，设置 `WASI_SDK_PREFIX`，然后运行 `./cross/build_openh264_wasi.sh <openh264-src>`。脚本将静态库安装到 `install-wasi/`。如果源码位于 `third_party/openh264/`，可以省略源码路径。
