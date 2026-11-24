@@ -25,7 +25,7 @@ if (!nodeFs.existsSync(resolvedInput)) {
 // behavior so existing scripts keep working.
 const wasmDir = process.env.FFMPEG_WASM_DIR
   ? path.resolve(process.env.FFMPEG_WASM_DIR)
-  : path.resolve(__dirname, "../build/ffmpeg-wasm");
+  : path.resolve(__dirname, "../build/ffmpeg-wasm-node");
 
 global.Module = {
   noInitialRun: true,

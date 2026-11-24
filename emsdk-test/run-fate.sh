@@ -16,11 +16,11 @@ pushd "${FFMPEG_CI}" > /dev/null
 source env.sh
 popd > /dev/null
 
-WASM_BUILD="${build_dir}/ffmpeg-wasm"
+WASM_BUILD="${build_dir}/ffmpeg-wasm-node"
 
 if [ ! -d "$WASM_BUILD" ]; then
     echo "Error: emsdk build directory not found: $WASM_BUILD" >&2
-    echo "Run emsdk_ffmpeg.sh first." >&2
+    echo "Run cross/emsdk_ffmpeg.sh first." >&2
     exit 1
 fi
 

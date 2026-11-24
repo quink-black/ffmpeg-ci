@@ -57,10 +57,10 @@ discovery paths and can also discover optional libraries through pkg-config.
 
 | Entry point | Target | Requires |
 |---|---|---|
-| `android_ffmpeg.sh` | Android arm64/armv7 | `ANDROID_NDK` and prebuilt Vulkan/shaderc in `prebuilt_android/` |
-| `wasi_ffmpeg.sh` | wasm32-wasi | `WASI_SDK_PREFIX` |
+| `cross/android_ffmpeg.sh` | Android arm64/armv7 | `ANDROID_NDK` and bundled shaderc for Vulkan builds |
+| `cross/wasi_ffmpeg.sh` | wasm32-wasi | `WASI_SDK_PREFIX` |
 | `cross/build_openh264_wasi.sh` | OpenH264 for wasm32-wasi | `WASI_SDK_PREFIX` and OpenH264 sources with WASI support |
-| `emsdk_ffmpeg.sh` | wasm32 for Node or Chrome | `EMSDK` |
+| `cross/emsdk_ffmpeg.sh` | wasm32 for Node or Chrome | `EMSDK` |
 | `hm_ffmpeg.sh` | HarmonyOS arm64 | `OHOS_SDK_NATIVE` |
 | `win/build.bat` | Windows x64 with MSVC | Visual Studio, MSYS2 and vcpkg, as described in `win/README.md` |
 

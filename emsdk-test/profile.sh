@@ -33,7 +33,7 @@ pushd "${FFMPEG_CI}" > /dev/null
 source env.sh
 popd > /dev/null
 
-WASM_BUILD="${build_dir}/ffmpeg-wasm"
+WASM_BUILD="${build_dir}/ffmpeg-wasm-node"
 CONFIG_MAK="${WASM_BUILD}/ffbuild/config.mak"
 PROFILE_DIR="${SCRIPT_DIR}/profiles"
 ANALYZE_SCRIPT="${SCRIPT_DIR}/analyze-cpuprofile.py"
@@ -153,7 +153,7 @@ case "${1:-}" in
 
     build-prof)
         if [ ! -f "$CONFIG_MAK" ]; then
-            echo "Error: $CONFIG_MAK not found. Run emsdk_ffmpeg.sh first." >&2
+            echo "Error: $CONFIG_MAK not found. Run cross/emsdk_ffmpeg.sh first." >&2
             exit 1
         fi
         if grep -q '\-\-profiling-funcs' "$CONFIG_MAK"; then
@@ -205,7 +205,7 @@ PREREQUISITES:
 
 STEP 1: Enable --profiling-funcs (adds WASM function name section):
   ./profile.sh build-prof
-  cd ~/work/ffmpeg_all/ffmpeg-ci/build/ffmpeg-wasm
+  cd ../build/ffmpeg-wasm-node
   rm -f ffmpeg_g ffmpeg_g.wasm && make ffmpeg_g -j$(nproc)
 
 STEP 2: Run profiling:

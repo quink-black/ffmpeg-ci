@@ -6,18 +6,17 @@ Test environment for FFmpeg HEVC decoder built with Emscripten (emsdk).
 
 ```bash
 # Source emsdk environment
-source ~/local/emsdk/emsdk_env.sh
+source /path/to/emsdk/emsdk_env.sh
 
 # Build FFmpeg with emsdk (builds ffmpeg + checkasm with NODERAWFS)
-cd ~/work/ffmpeg_all/ffmpeg-ci
-./emsdk_ffmpeg.sh --path ~/work/ffmpeg_all/wasm-ffmpeg/
+./cross/emsdk_ffmpeg.sh --path ../wasm-ffmpeg
 ```
 
 ## Node.js Testing
 
 ### Fate Tests (Correctness)
 
-Run FFmpeg's built-in test suite to verify decoder correctness:
+Run the following commands from `emsdk-test/` to verify decoder correctness:
 
 ```bash
 # Run all HEVC checkasm tests
@@ -55,14 +54,13 @@ Requires `--profiling-funcs` to add WASM function names to the profile:
 ./profile.sh build-prof
 
 # Rebuild the binaries
-cd ~/work/ffmpeg_all/ffmpeg-ci/build/ffmpeg-wasm
-source ~/local/emsdk/emsdk_env.sh
+cd ../build/ffmpeg-wasm-node
 rm -f ffmpeg_g ffmpeg_g.wasm && make ffmpeg_g -j$(nproc)
 rm -f tests/checkasm/checkasm tests/checkasm/checkasm.wasm
 make tests/checkasm/checkasm -j$(nproc)
 
 # Step 2: Profile
-cd ~/work/ffmpeg_all/ffmpeg-ci/emsdk-test
+cd ../../emsdk-test
 ./profile.sh checkasm hevc_sao "hevc_sao_edge*"
 ./profile.sh decode ~/video/raw.hevc 600
 
@@ -109,8 +107,7 @@ tar czf ffmpeg-hevc-test.tar.gz ffmpeg-hevc-test-package
 Run ffmpeg directly under Node.js (always use `-nostdin` to avoid ioctl crash):
 
 ```bash
-source ~/local/emsdk/emsdk_env.sh
-cd ~/work/ffmpeg_all/ffmpeg-ci/build/ffmpeg-wasm
+cd ../build/ffmpeg-wasm-node
 
 # Decode HEVC to null output
 $EMSDK_NODE ffmpeg_g -nostdin -i /path/to/input.hevc -frames:v 100 -f null -

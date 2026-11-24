@@ -16,7 +16,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FFMPEG_CI="${SCRIPT_DIR}/.."
-BUILD_DIR="${FFMPEG_CI}/build/ffmpeg-wasm"
+BUILD_DIR="${FFMPEG_CI}/build/ffmpeg-wasm-node"
 OUTPUT_DIR="${SCRIPT_DIR}/ffmpeg-hevc-test-package"
 
 ENABLE_OBFUSCATION=false
@@ -63,7 +63,7 @@ echo ""
 # Check build directory
 if [ ! -d "$BUILD_DIR" ]; then
     echo "Error: Build directory not found: $BUILD_DIR" >&2
-    echo "Please run emsdk_ffmpeg.sh first." >&2
+    echo "Please run cross/emsdk_ffmpeg.sh first." >&2
     exit 1
 fi
 

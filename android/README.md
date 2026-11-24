@@ -15,21 +15,20 @@ A debug app (`com.example.ffmpegplay`, arm64-v8a only) that links the FFmpeg sta
 
 ## Build
 
-1. Cross-build FFmpeg and libplacebo for Android from the repo root. `ANDROID_NDK` must point to an NDK:
+1. Cross-build FFmpeg and libplacebo for Android from the repo root. Set
+   `ANDROID_NDK` to the NDK directory. The app links Vulkan, so use an API
+   level that provides the Vulkan loader.
 
    ```bash
-   ANDROID_NDK=<ndk> ./android_ffmpeg.sh --path <ffmpeg-src> --enable_opt 1
+   ANDROID_NDK=<ndk> ./cross/android_ffmpeg.sh --path <ffmpeg-src> \
+       --api 24 --enable_vulkan 1
    ```
 
-   This produces `build/ffmpeg-aarch64/` (FFmpeg static libs) and `install-aarch64/`. The script deletes and recreates `build/ffmpeg-aarch64/`.
+   The build produces FFmpeg static libraries under `build/ffmpeg-aarch64/`
+   and installs the libraries to `install-aarch64/`. FFmpeg's configure
+   creates the `src` link used by `app/cpp/CMakeLists.txt`.
 
-2. Link the FFmpeg source into that directory. `app/cpp/CMakeLists.txt` takes headers from `build/ffmpeg-aarch64/src`, and nothing creates the link. Repeat it after every run of step 1:
-
-   ```bash
-   ln -s <ffmpeg-src> build/ffmpeg-aarch64/src
-   ```
-
-3. Build the APK. Needs JDK 17 or newer and `android/local.properties` with `sdk.dir=<sdk>` (optionally `ndk.version=<ver>`, otherwise AGP picks the installed NDK):
+2. Build the APK. Needs JDK 17 or newer and `android/local.properties` with `sdk.dir=<sdk>` (optionally `ndk.version=<ver>`, otherwise AGP picks the installed NDK):
 
    ```bash
    ./gradlew :app:assembleDebug
@@ -37,13 +36,13 @@ A debug app (`com.example.ffmpegplay`, arm64-v8a only) that links the FFmpeg sta
 
    Output: `app/build/outputs/apk/debug/app-debug.apk`.
 
-4. Install:
+3. Install:
 
    ```bash
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
 
-If only `fftools` code under `app/cpp` changed, repeat steps 3 and 4. If FFmpeg libraries changed, repeat from step 1.
+If only `fftools` code under `app/cpp` changed, repeat steps 2 and 3. If FFmpeg libraries changed, repeat from step 1.
 
 ## Run an ffmpeg command from the shell
 

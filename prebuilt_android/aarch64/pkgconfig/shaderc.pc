@@ -1,4 +1,4 @@
-prefix=../../prebuilt_android
+prefix=${pcfiledir}/../..
 libdir=${prefix}/aarch64
 includedir=${prefix}/include
 

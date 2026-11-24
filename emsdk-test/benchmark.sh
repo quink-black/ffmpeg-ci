@@ -15,7 +15,7 @@ pushd "${FFMPEG_CI}" > /dev/null
 source env.sh
 popd > /dev/null
 
-WASM_BUILD="${build_dir}/ffmpeg-wasm"
+WASM_BUILD="${build_dir}/ffmpeg-wasm-node"
 NODE_WRAPPER="${SCRIPT_DIR}/run-node.sh"
 
 if [ ! -d "$WASM_BUILD" ]; then
@@ -35,7 +35,7 @@ run_checkasm_bench() {
 
     if [ ! -f "$checkasm" ]; then
         echo "Error: checkasm not found at $checkasm" >&2
-        echo "Rebuild with emsdk_ffmpeg.sh to include checkasm." >&2
+        echo "Rebuild with cross/emsdk_ffmpeg.sh to include checkasm." >&2
         exit 1
     fi
 
