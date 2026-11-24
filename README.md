@@ -44,7 +44,7 @@ FFmpeg 的构建目录位于 `build/native/ffmpeg/`。入口根据 FFmpeg 源码
 
 ## 第三方库
 
-Git 子模块记录第三方源码版本。入口使用每个库自己的构建系统，并按依赖关系构建库。例如 Vulkan Loader 依赖 Vulkan Headers，而 libplacebo 还依赖 Little CMS。可用的库、默认选择和源码目录由 `list-deps` 列出。
+第三方源码和 Android 预编译库位于 `third_party/`，Git 子模块记录源码版本。入口使用每个库自己的构建系统，并按依赖关系构建库。例如 Vulkan Loader 依赖 Vulkan Headers，而 libplacebo 还依赖 Little CMS。可用的库、默认选择和源码目录由 `list-deps` 列出。
 
 ```bash
 ./cibuild.sh list-deps
@@ -62,7 +62,7 @@ FFmpeg 会优先使用为本次构建选中的缓存库。可选功能还可以�
 
 `make` 和 `make .x264` 等入口会调用同一依赖构建器。`make ffmpeg path=../ffmpeg enable_opt=1` 会构建优化版，`make clean` 会清理所选 FFmpeg 构建的目标文件。旧脚本参数 `--enable_opt`、`--enable_asan` 和 `--skip_test` 仍可用于现有调用。原先直接调用 `build_ffmpeg.sh` 的脚本可以改用 `./cibuild.sh --reuse-deps --skip-test`，并保留原来的构建选项。需要 FATE 时可以去掉 `--skip-test`。
 
-单独构建 L-SMASH、SRT、uavs3d、VMAF、vvdec 或 zimg 时，请运行 `./cibuild.sh deps --deps NAME`，其中 `NAME` 取 `list-deps` 列出的名称。SRT 和 zimg 需要在仓库根目录下提供相应的源码目录。使用 VMAF 的 Python 模型训练工具时，还需要单独构建 LibSVM，可运行 `make -C vmaf/third_party/libsvm lib`。
+单独构建 L-SMASH、SRT、uavs3d、VMAF、vvdec 或 zimg 时，请运行 `./cibuild.sh deps --deps NAME`，其中 `NAME` 取 `list-deps` 列出的名称。SRT 和 zimg 需要在 `third_party/` 下提供相应的源码目录。使用 VMAF 的 Python 模型训练工具时，还需要单独构建 LibSVM，可运行 `make -C third_party/vmaf/third_party/libsvm lib`。
 
 ## FATE 和其他平台
 
@@ -75,4 +75,4 @@ FFmpeg 会优先使用为本次构建选中的缓存库。可选功能还可以�
 
 Android、Emscripten、WASI 和 HarmonyOS 的 FFmpeg 构建入口位于 `cross/`。这些脚本以仓库根目录为基准解析相对的 `--path`，并在配置相同时复用已生成的目标文件。`FFMPEG_CI_JOBS` 可以指定编译并行数。HarmonyOS 构建通过 `OHOS_SDK_NATIVE` 指定 SDK。[Android 设备验证](android/README.md)、[Emscripten 验证](emsdk-test/README.md)、[Windows MSVC](win/README.md)、[ONNX DNN 测试](tests/dnn/README.md)
 
-Android 和 HarmonyOS 构建可通过 `--enable_x264 1` 交叉编译 x264。若需要单独构建 WASI 版 OpenH264，请提供支持 WASI 的 OpenH264 源码，设置 `WASI_SDK_PREFIX`，然后运行 `./cross/build_openh264_wasi.sh <openh264-src>`。脚本将静态库安装到 `install-wasi/`。如果源码位于仓库根目录下的 `openh264/`，可以省略源码路径。
+Android 和 HarmonyOS 构建可通过 `--enable_x264 1` 交叉编译 x264。若需要单独构建 WASI 版 OpenH264，请提供支持 WASI 的 OpenH264 源码，设置 `WASI_SDK_PREFIX`，然后运行 `./cross/build_openh264_wasi.sh <openh264-src>`。脚本将静态库安装到 `install-wasi/`。如果源码位于 `third_party/openh264/`，可以省略源码路径。

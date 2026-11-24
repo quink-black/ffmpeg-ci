@@ -28,8 +28,8 @@ class BuildStateTests(unittest.TestCase):
         env = common.build_environment()
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            source = root / 'x264'
-            source.mkdir()
+            source = root / 'third_party' / 'x264'
+            source.mkdir(parents=True)
             (source / 'configure').write_text('initial source')
             attempts = ['fail']
             with (

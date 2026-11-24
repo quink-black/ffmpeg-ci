@@ -81,7 +81,7 @@ def dependency_command(command, argv, env):
         parser.parse_args(argv)
         for name, dep in DEPENDENCIES.items():
             status = ('default' if dep.default else 'optional') if supported(name) else 'unavailable'
-            print(f'{name:<15} {status:<12} {dep.source}')
+            print(f'{name:<15} {status:<12} third_party/{dep.source}')
 
 
 def main(argv):

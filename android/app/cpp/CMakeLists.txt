@@ -77,7 +77,7 @@ target_link_libraries(ffmpegplay
         ${ffmpeg_build_dir}/libavutil/libavutil.a
         # external deps the FFmpeg static libs were built against (NDK28 + libplacebo/vulkan)
         ${ffmpeg_ci_dir}/install-aarch64/lib/libplacebo.a
-        ${ffmpeg_ci_dir}/prebuilt_android/aarch64/libshaderc.a
+        ${ffmpeg_ci_dir}/third_party/prebuilt_android/aarch64/libshaderc.a
         vulkan
         #${ffmpeg_install_dir}/lib/libx264.a
 

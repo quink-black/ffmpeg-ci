@@ -89,9 +89,9 @@ config=()
 cflags=''
 ldflags=''
 if [ "$enable_vulkan" -eq 1 ]; then
-    shaderc="$repo_root/prebuilt_android/$lib_arch"
+    shaderc="$repo_root/third_party/prebuilt_android/$lib_arch"
     [ -f "$shaderc/libshaderc.a" ] || cross_error "Missing shaderc archive in $shaderc"
-    cflags="-I$repo_root/vulkan_header/include -I$repo_root/prebuilt_android/include"
+    cflags="-I$repo_root/third_party/vulkan_header/include -I$repo_root/third_party/prebuilt_android/include"
     ldflags="-L$shaderc -lshaderc -lvulkan"
     export PKG_CONFIG_PATH="$shaderc/pkgconfig:$PKG_CONFIG_PATH"
 
@@ -120,7 +120,7 @@ EOF
     if [ -f "$placebo_build/meson-private/coredata.dat" ]; then
         meson_args+=(--reconfigure)
     fi
-    "$meson_bin" setup "${meson_args[@]}" "$placebo_build" "$repo_root/libplacebo" \
+    "$meson_bin" setup "${meson_args[@]}" "$placebo_build" "$repo_root/third_party/libplacebo" \
         --cross-file "$cross_file" --prefix "$install_dir" --libdir lib \
         --wrap-mode=nodownload -Ddefault_library=static -Ddemos=false
     ninja -C "$placebo_build" -j "$jobs" install
@@ -148,7 +148,7 @@ fi
 
 if [ "$enable_x265" -eq 1 ]; then
     x265_build="$build_dir/x265-android-$abi"
-    cmake -G Ninja -S "$repo_root/x265/source" -B "$x265_build" \
+    cmake -G Ninja -S "$repo_root/third_party/x265/source" -B "$x265_build" \
         --toolchain "$ndk/build/cmake/android.toolchain.cmake" \
         -DASM_FLAGS="--target=$target$api" -DENABLE_CLI=OFF \
         -DCMAKE_INSTALL_PREFIX="$install_dir" -DCMAKE_BUILD_TYPE=RelWithDebInfo \

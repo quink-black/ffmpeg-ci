@@ -43,6 +43,7 @@ flags forward to the native entry point.
 ## Native dependencies
 
 `native_build/libraries.py` defines the recipes and their dependencies.
+Third-party source trees and Android prebuilt libraries are under `third_party/`.
 Use `./cibuild.sh list-deps` for the default and optional dependency lists.
 `./cibuild.sh deps --deps NAME` builds a dependency without building FFmpeg.
 

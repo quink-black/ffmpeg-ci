@@ -19,7 +19,7 @@ esac
 
 mkdir -p "$build"
 cd "$build"
-"${root}/x264/configure" \
+"${root}/third_party/x264/configure" \
     --prefix="$prefix" \
     --enable-static \
     --enable-pic \

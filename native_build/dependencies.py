@@ -184,7 +184,7 @@ def build_recipe(name, dep, source, directory, prefix, env, jobs, options, requi
     elif dep.backend == 'x265':
         x265(source, build_dir, prefix, env, jobs, options)
     elif dep.backend == 'meson':
-        meson = ROOT / 'meson' / 'meson.py'
+        meson = ROOT / 'third_party' / 'meson' / 'meson.py'
         run([sys.executable, meson, 'setup', build_dir, source, '--wrap-mode=nodownload',
              '--buildtype=release', '-Ddefault_library=static', f'--prefix={prefix}',
              '--libdir=lib', *options], env=env)
@@ -210,7 +210,7 @@ def resolve(names, env, jobs, *, build=True):
     versions = {}
     for name in names:
         dep = DEPENDENCIES[name]
-        source = (ROOT / dep.source).resolve()
+        source = (ROOT / 'third_party' / dep.source).resolve()
         check = {'cmake': 'CMakeLists.txt', 'cmake-copy': 'CMakeLists.txt', 'x265': 'CMakeLists.txt',
                  'meson': 'meson.build', 'davs2': 'build/linux/configure',
                  'autogen': 'autogen.sh', 'configure': 'configure'}
@@ -234,11 +234,11 @@ def resolve(names, env, jobs, *, build=True):
             tools.extend([sys.executable, 'ninja'])
         meson = None
         if dep.backend == 'meson':
-            meson_source = (ROOT / 'meson').resolve()
+            meson_source = (ROOT / 'third_party' / 'meson').resolve()
             if not (meson_source / 'meson.py').is_file():
                 if not build:
                     continue
-                raise BuildError('Initialize the Meson submodule with git submodule update --init meson')
+                raise BuildError('Initialize Meson with git submodule update --init third_party/meson')
             meson = source_identity(meson_source)
         revision = source_identity(source)
         key = digest(str(source), revision, repr(dep), options, platform.system(), ARCH,

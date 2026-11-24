@@ -1,26 +1,26 @@
 [submodule "dav1d"]
-	path = dav1d
+	path = third_party/dav1d
 	url = https://github.com/videolan/dav1d.git
 [submodule "vmaf"]
-	path = vmaf
+	path = third_party/vmaf
 	url = https://github.com/Netflix/vmaf.git
 [submodule "x264"]
-	path = x264
+	path = third_party/x264
 	url = https://github.com/mirror/x264.git
 [submodule "meson"]
-	path = meson
+	path = third_party/meson
 	url = https://github.com/mesonbuild/meson.git
 [submodule "l-smash"]
-	path = l-smash
+	path = third_party/l-smash
 	url = https://github.com/l-smash/l-smash.git
 [submodule "x265"]
-	path = x265
+	path = third_party/x265
 	url = https://bitbucket.org/multicoreware/x265_git.git
 [submodule "uavs3d"]
-	path = uavs3d
+	path = third_party/uavs3d
 	url = https://github.com/uavs3/uavs3d.git
 [submodule "davs2"]
-	path = davs2
+	path = third_party/davs2
 	url = https://github.com/pkuvcl/davs2.git
 [submodule "avs2stream"]
 	path = avs2stream
@@ -29,23 +29,23 @@
 	path = avs3stream
 	url = https://github.com/uavs3/avs3stream.git
 [submodule "vvdec"]
-	path = vvdec
+	path = third_party/vvdec
 	url = https://github.com/fraunhoferhhi/vvdec.git
 [submodule "vulkan_loader"]
-	path = vulkan_loader
+	path = third_party/vulkan_loader
 	url = https://github.com/KhronosGroup/Vulkan-Loader.git
 [submodule "vulkan_header"]
-	path = vulkan_header
+	path = third_party/vulkan_header
 	url = https://github.com/KhronosGroup/Vulkan-Headers.git
 [submodule "libplacebo"]
-	path = libplacebo
+	path = third_party/libplacebo
 	url = https://github.com/haasn/libplacebo.git
 [submodule "cms"]
-	path = cms
+	path = third_party/cms
 	url = https://github.com/mm2/Little-CMS.git
 [submodule "aom"]
-	path = aom
+	path = third_party/aom
 	url = https://aomedia.googlesource.com/aom
 [submodule "vvenc"]
-	path = vvenc
+	path = third_party/vvenc
 	url = https://github.com/fraunhoferhhi/vvenc.git

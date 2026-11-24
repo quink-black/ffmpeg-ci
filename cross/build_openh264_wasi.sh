@@ -4,7 +4,7 @@ set -e
 : "${WASI_SDK_PREFIX:?Set WASI_SDK_PREFIX to the WASI SDK directory}"
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-source_dir="${1:-${root}/openh264}"
+source_dir="${1:-${root}/third_party/openh264}"
 if [ ! -f "${source_dir}/Makefile" ]; then
     echo "OpenH264 Makefile not found in ${source_dir}. Pass its source directory as the first argument." >&2
     exit 1
