@@ -4,7 +4,7 @@ import shlex
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from common import (ARCH, BUILD, DARWIN, ROOT, STATE, WINDOWS, BuildError,
                     digest, environment_identity, file_digest, lock, make, output,
@@ -48,10 +48,11 @@ def git_files(source):
 
 
 def source_identity(source):
-    repo = output(['git', 'rev-parse', '--show-toplevel'], cwd=source)
+    # The repository-relative prefix works with both MSYS2 and native Windows Git.
+    repo = output(['git', 'rev-parse', '--show-prefix'], cwd=source)
     if repo.returncode == 0:
-        git_root = Path(repo.stdout.strip()).resolve()
-        if git_root in (source, source.parent) and git_root != ROOT:
+        depth = len(PurePosixPath(repo.stdout.rstrip('\n')).parts)
+        if depth <= 1 and (source.parent if depth else source) != ROOT:
             head = output(['git', 'rev-parse', 'HEAD'], cwd=source)
             if head.returncode:
                 raise BuildError(f'Cannot read Git HEAD for {source}')
@@ -104,11 +105,19 @@ def x265(source, build_dir, prefix, env, jobs, options):
         cmake(source, build_dir / depth, prefix, env, jobs,
               (*options, '-DENABLE_CLI=OFF', '-DEXPORT_C_API=OFF', *flags))
     libraries = [build_dir / depth / 'libx265.a' for depth in ('10bit', '12bit')]
+    link_libraries = list(map(str, libraries))
+    if WINDOWS:
+        # MSYS2 does not convert the individual paths in a CMake list argument.
+        link_libraries = subprocess.check_output(['cygpath', '-m', *link_libraries],
+                                                 env=env, text=True).splitlines()
     main = build_dir / '8bit'
     cmake(source, main, prefix, env, jobs,
           (*options, '-DLINKED_10BIT=ON', '-DLINKED_12BIT=ON',
-           '-DEXTRA_LIB=' + ';'.join(map(str, libraries))))
-    run(['cmake', '--install', main], env=env)
+           '-DEXTRA_LIB=' + ';'.join(link_libraries)))
+    # Ninja installs the same binaries in every configuration. On Windows
+    # x265's debug install also expects an MSVC PDB, which MinGW never emits.
+    install_flags = ['--config', 'Release'] if WINDOWS and not (main / 'x265.pdb').is_file() else []
+    run(['cmake', '--install', main, *install_flags], env=env)
     # Keep CMake's 8-bit archive intact for the CLI and merge the installed archive.
     destination = prefix / 'lib' / 'libx265.a'
     merged = build_dir / 'libx265.a'
@@ -167,6 +176,14 @@ def fix_aom_nasm_probe(source):
     path.write_text(text.replace(help_check, assemble_check), encoding='utf-8')
 
 
+def meson_python(env):
+    # The driver needs POSIX Python, but Meson expects native Python in MinGW.
+    prefix = env.get('MSYSTEM_PREFIX', '/usr')
+    if WINDOWS and prefix != '/usr':
+        return str(Path(prefix) / 'bin' / 'python3')
+    return sys.executable
+
+
 def build_recipe(name, dep, source, directory, prefix, env, jobs, options, requirements):
     build_dir = directory / 'build'
     aom_x86 = name == 'aom' and ARCH in ('x86_64', 'amd64', 'i386', 'i686', 'x86')
@@ -189,7 +206,7 @@ def build_recipe(name, dep, source, directory, prefix, env, jobs, options, requi
         x265(source, build_dir, prefix, env, jobs, options)
     elif dep.backend == 'meson':
         meson = ROOT / 'third_party' / 'meson' / 'meson.py'
-        run([sys.executable, meson, 'setup', build_dir, source, '--wrap-mode=nodownload',
+        run([meson_python(env), meson, 'setup', build_dir, source, '--wrap-mode=nodownload',
              '--buildtype=release', '-Ddefault_library=static', f'--prefix={prefix}',
              '--libdir=lib', *options], env=env)
         run(['ninja', '-C', build_dir, '-j', jobs, 'install'], env=env)
@@ -235,7 +252,7 @@ def resolve(names, env, jobs, *, build=True):
         if dep.backend.startswith('cmake') or dep.backend == 'x265':
             tools.extend(['cmake', 'ninja'])
         elif dep.backend == 'meson':
-            tools.extend([sys.executable, 'ninja'])
+            tools.extend([meson_python(pkg_env), 'ninja'])
         meson = None
         if dep.backend == 'meson':
             meson_source = (ROOT / 'third_party' / 'meson').resolve()

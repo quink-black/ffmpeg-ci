@@ -6,7 +6,7 @@
 
 安装 Bash、Git、Python 3.10 或更新版本、C/C++ 编译器、GNU Make、pkg-config、CMake 和 Ninja。x86 构建还需要 NASM，默认的 FATE 流程还需要 rsync。构建入口从 `PATH` 查找这些工具。
 
-在 macOS 或 Linux 上运行以下命令。在 Windows 上，可从 MSYS2 的 MinGW 环境运行相同入口，并安装 MSYS2 的 `/usr/bin/python3`。FFmpeg 的 configure 要求源码路径没有空格，因此建议将两个仓库都放在没有空格的路径下。MSVC 和 vcpkg 构建使用专门的入口。[Windows 构建说明](win/README.md)
+在 macOS 或 Linux 上运行以下命令。在 Windows 上，从 MSYS2 的 MinGW 环境运行相同入口。构建需要 MSYS2 的 `/usr/bin/python3` 和 `diffutils`，Meson 依赖还需要当前 MinGW 环境自己的 `python3`。FFmpeg 的 configure 要求源码路径没有空格，因此建议将两个仓库都放在没有空格的路径下。MSVC 和 vcpkg 构建使用专门的入口。[Windows 构建说明](win/README.md)
 
 ```bash
 git submodule update --init --recursive

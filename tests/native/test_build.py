@@ -1,5 +1,6 @@
 import contextlib
 import io
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -17,6 +18,26 @@ class BuildStateTests(unittest.TestCase):
     def test_dependency_order(self):
         names = dependencies.select('libplacebo,cms,vulkan_loader')
         self.assertEqual(names, ['cms', 'vulkan_header', 'vulkan_loader', 'libplacebo'])
+
+    def test_git_source_identity_includes_revision_and_tracked_changes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            source = root / 'source'
+            source.mkdir()
+            tracked = source / 'configure'
+            tracked.write_text('initial source\n')
+            subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
+            subprocess.run(['git', 'add', 'source/configure'], cwd=root, check=True)
+            subprocess.run(['git', '-c', 'user.name=Test', '-c', 'user.email=test@example.com',
+                            'commit', '-qm', 'Initial source'], cwd=root, check=True)
+
+            revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+            initial = dependencies.source_identity(source)
+            self.assertEqual(initial[0], revision)
+            (source / 'untracked').touch()
+            self.assertEqual(dependencies.source_identity(source), initial)
+            tracked.write_text('updated source\n')
+            self.assertNotEqual(dependencies.source_identity(source), initial)
 
     def test_failed_dependency_is_retried_and_source_changes_get_new_prefix(self):
         def install(name, dep, source, directory, prefix, env, jobs, options, requirements):

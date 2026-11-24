@@ -43,6 +43,9 @@ echo cl.exe found: OK
 
 REM 使用 -use-full-path 让 MSYS2 继承当前环境变量
 echo Starting MSYS2 build...
-C:\msys64\msys2_shell.cmd -msys2 -defterm -no-start -use-full-path -here -c "./build.sh %BUILD_TYPE%"
+pushd "%~dp0" || exit /b 1
+call C:\msys64\msys2_shell.cmd -msys2 -defterm -no-start -use-full-path -here -c "./build.sh %BUILD_TYPE%"
+set "BUILD_RESULT=%ERRORLEVEL%"
+popd
 
-endlocal
+endlocal & exit /b %BUILD_RESULT%

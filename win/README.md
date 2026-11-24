@@ -13,7 +13,7 @@
 | 软件 | 版本 | 说明 |
 |----------|---------|-------------|
 | Visual Studio | 2019/2022 | 需要 C++ 桌面开发工作负载 |
-| MSYS2 | 最新版 | 提供 Unix 构建环境 |
+| MSYS2 | 最新版 | 提供 Bash、GNU Make、pkg-config 和 diffutils |
 | vcpkg | 最新版 | C++ 包管理器 |
 
 ### 路径配置

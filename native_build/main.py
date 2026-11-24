@@ -3,12 +3,12 @@ import os
 import re
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 if os.name != 'posix':
     sys.exit('Use the MSYS2 Python interpreter for native Windows builds.')
 
-from common import DEFAULT_SOURCE, LEGACY_PREFIX, ROOT, BuildError, build_environment
+from common import DEFAULT_SOURCE, LEGACY_PREFIX, ROOT, WINDOWS, BuildError, build_environment
 from dependencies import resolve, select, supported
 from libraries import DEPENDENCIES
 from ffmpeg import PROFILES, build_dir, build_ffmpeg
@@ -66,7 +66,10 @@ def ffmpeg_options(parser):
 
 
 def absolute_path(value):
-    return (ROOT / Path(value).expanduser()).resolve()
+    path = Path(value).expanduser()
+    if WINDOWS and PureWindowsPath(path).is_absolute():
+        path = Path(subprocess.check_output(['cygpath', '-u', str(path)], text=True).rstrip('\n'))
+    return (ROOT / path).resolve()
 
 
 def dependency_command(command, argv, env):

@@ -25,68 +25,14 @@ if [ ! -d "${VCPKG_ROOT}/installed" ]; then
     exit 1
 fi
 
-# OpenCV 路径
-OPENCV_INC="${VCPKG_ROOT}/installed/x64-windows/include/opencv4"
-OPENCV_LIB="${VCPKG_ROOT}/installed/x64-windows/lib"
+# vcpkg 和 OpenCV 路径
+VCPKG_TRIPLET_DIR="${VCPKG_ROOT}/installed/x64-windows"
+OPENCV_INC="${VCPKG_TRIPLET_DIR}/include/opencv4"
+VCPKG_LIB_DIR="${VCPKG_TRIPLET_DIR}/lib"
 
 # vcpkg pkg-config 路径
-export PKG_CONFIG_PATH="${VCPKG_ROOT}/installed/x64-windows/lib/pkgconfig"
+export PKG_CONFIG_PATH="${VCPKG_LIB_DIR}/pkgconfig"
 export PKG_CONFIG_LIBDIR="$PKG_CONFIG_PATH"
-
-# 常用第三方库开关（尽可能多）
-THIRD_PARTY_FLAGS=(
-    --enable-gpl
-    --enable-version3
-    --enable-nonfree
-    --enable-libx264
-    --enable-libx265
-    --enable-libfdk-aac
-    --enable-openssl
-    --enable-avisynth
-    --enable-libaom
-    --enable-libass
-    --enable-bzlib
-    --enable-libdav1d
-    --enable-libfreetype
-    --enable-libfontconfig
-    --enable-libfribidi
-    --enable-iconv
-    --enable-lzma
-    --enable-libmp3lame
-    --enable-libopenjpeg
-    --enable-libopenmpt
-    --enable-libopus
-    --enable-libsnappy
-    --enable-libsoxr
-    --enable-libspeex
-    --enable-libtheora
-    --enable-libvorbis
-    --enable-libvpx
-    --enable-vulkan
-    --enable-libwebp
-    --enable-libxml2
-    --enable-zlib
-    --enable-sdl2
-    --enable-libmodplug
-    --enable-libopenh264
-    --enable-libsrt
-    --enable-libilbc
-    --enable-libssh
-    --enable-amf
-    --enable-opencl
-    --enable-opengl
-    --enable-libtesseract
-    --enable-cuda
-    --enable-nvenc
-    --enable-nvdec
-    --enable-cuvid
-    --enable-ffnvcodec
-    --enable-libmfx
-    --enable-encoder=h264_qsv
-    --enable-decoder=h264_qsv
-    --enable-libzmq
-    --enable-librubberband
-)
 
 # 构建类型: debug 或 release
 BUILD_TYPE="${1:-release}"
@@ -181,6 +127,59 @@ echo "=========================================="
 # 检查是否需要配置
 if [ ! -f "config.h" ]; then
     echo "[1/3] 配置中..."
+    # Let configure detect SDK features and only request optional libraries
+    # advertised by this FFmpeg checkout and installed in the vcpkg triplet.
+    CONFIGURE_HELP="$("$FFMPEG_SRC/configure" --help)"
+    THIRD_PARTY_FLAGS=(--enable-gpl --enable-version3 --enable-nonfree)
+    enable_feature() {
+        if grep -qE "^[[:space:]]+--(enable|disable)-$1([[:blank:]]|$)" <<<"$CONFIGURE_HELP"; then
+            THIRD_PARTY_FLAGS+=("--enable-$1")
+        fi
+    }
+    while read -r feature module; do
+        if pkg-config --exists "$module"; then
+            enable_feature "$feature"
+        fi
+    done <<'LIBRARIES'
+libx264 x264
+libx265 x265
+libfdk-aac fdk-aac
+openssl openssl
+avisynth avisynth
+libaom aom
+libass libass
+libdav1d dav1d
+libfreetype freetype2
+libfontconfig fontconfig
+libfribidi fribidi
+libopenjpeg libopenjp2
+libopenmpt libopenmpt
+libopus opus
+libsnappy snappy
+libsoxr soxr
+libspeex speex
+libtheora theoraenc
+libvorbis vorbisenc
+libvpx vpx
+libwebp libwebp
+libxml2 libxml-2.0
+libmodplug libmodplug
+libopenh264 openh264
+libsrt srt
+libilbc libilbc
+libssh libssh
+opencl OpenCL
+libtesseract tesseract
+libmfx libmfx
+libzmq libzmq
+librubberband rubberband
+opengl opengl
+LIBRARIES
+    if [ -f "$VCPKG_LIB_DIR/mp3lame.lib" ]; then
+        enable_feature libmp3lame
+    fi
+
+    # Match the dynamic MSVC runtime used by the x64-windows vcpkg triplet.
     "$FFMPEG_SRC/configure" \
         --prefix="$INSTALL_DIR" \
         --toolchain=msvc \
@@ -188,9 +187,9 @@ if [ ! -f "config.h" ]; then
         --disable-doc \
         --enable-libopencv \
         "${THIRD_PARTY_FLAGS[@]}" \
-        --extra-cflags="-I${VCPKG_ROOT}/installed/x64-windows/include -I${OPENCV_INC}" \
-        --extra-cxxflags="-I${VCPKG_ROOT}/installed/x64-windows/include -I${OPENCV_INC}" \
-        --extra-ldflags="-LIBPATH:${VCPKG_ROOT}/installed/x64-windows/lib -LIBPATH:${OPENCV_LIB}" \
+        --extra-cflags="-MD -I${VCPKG_TRIPLET_DIR}/include -I${OPENCV_INC}" \
+        --extra-cxxflags="-MD -I${VCPKG_TRIPLET_DIR}/include -I${OPENCV_INC}" \
+        --extra-ldflags="-LIBPATH:${VCPKG_LIB_DIR}" \
         --extra-libs="opencv_core4.lib opencv_imgproc4.lib"
     
     # 修复C++标准版本：FFmpeg默认使用c++17，但vf_oc_plugin.cpp需要c++20
@@ -208,10 +207,23 @@ make -j$(nproc)
 echo "[3/3] 安装中..."
 make install
 
-# 复制 OpenCV DLL
-echo "复制 OpenCV DLL..."
-cp "${VCPKG_ROOT}/installed/x64-windows/bin/opencv_core4.dll" "$INSTALL_DIR/bin/" 2>/dev/null || true
-cp "${VCPKG_ROOT}/installed/x64-windows/bin/opencv_imgproc4.dll" "$INSTALL_DIR/bin/" 2>/dev/null || true
+# 复制 vcpkg 运行时 DLL
+echo "复制 vcpkg DLL..."
+applocal="${VCPKG_ROOT}/scripts/buildsystems/msbuild/applocal.ps1"
+if [ -f "$applocal" ]; then
+    applocal_win="$(cygpath -w "$applocal")"
+    vcpkg_bin_win="$(cygpath -w "${VCPKG_TRIPLET_DIR}/bin")"
+    for program in ffmpeg ffprobe ffplay; do
+        executable="$INSTALL_DIR/bin/$program.exe"
+        if [ -f "$executable" ]; then
+            powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$applocal_win" \
+                -targetBinary "$(cygpath -w "$executable")" -installedDir "$vcpkg_bin_win"
+        fi
+    done
+else
+    cp "${VCPKG_TRIPLET_DIR}/bin/opencv_core4.dll" "$INSTALL_DIR/bin/" 2>/dev/null || true
+    cp "${VCPKG_TRIPLET_DIR}/bin/opencv_imgproc4.dll" "$INSTALL_DIR/bin/" 2>/dev/null || true
+fi
 
 echo "=========================================="
 echo "构建完成!"
