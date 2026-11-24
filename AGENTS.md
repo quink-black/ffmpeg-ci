@@ -61,7 +61,7 @@ discovery paths and can also discover optional libraries through pkg-config.
 | `cross/wasi_ffmpeg.sh` | wasm32-wasi | `WASI_SDK_PREFIX` |
 | `cross/build_openh264_wasi.sh` | OpenH264 for wasm32-wasi | `WASI_SDK_PREFIX` and OpenH264 sources with WASI support |
 | `cross/emsdk_ffmpeg.sh` | wasm32 for Node or Chrome | `EMSDK` |
-| `hm_ffmpeg.sh` | HarmonyOS arm64 | `OHOS_SDK_NATIVE` |
+| `cross/hm_ffmpeg.sh` | HarmonyOS arm64 | `OHOS_SDK_NATIVE` |
 | `win/build.bat` | Windows x64 with MSVC | Visual Studio, MSYS2 and vcpkg, as described in `win/README.md` |
 
 Read `android/README.md` before modifying the Android app or verifying FFmpeg
