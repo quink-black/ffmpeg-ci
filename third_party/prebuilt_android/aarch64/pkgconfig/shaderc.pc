@@ -4,7 +4,7 @@ includedir=${prefix}/include
 
 Name: shaderc
 Description: Tools and libraries for Vulkan shader compilation
-Version: 2023.7.1
+Version: 2026.4
 URL: https://github.com/google/shaderc
 
 Libs: -L${libdir} -lshaderc

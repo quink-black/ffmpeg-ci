@@ -311,6 +311,16 @@ class CompileOptions {
                                                        kind, base);
   }
 
+  // Sets whether the compiler should preserve all bindings, even when those
+  // bindings are not used.
+  void SetPreserveBindings(bool preserve_bindings) {
+    shaderc_compile_options_set_preserve_bindings(options_, preserve_bindings);
+  }
+
+  void SetMaxIdBound(uint32_t max_id_bound) {
+    shaderc_compile_options_set_max_id_bound(options_, max_id_bound);
+  }
+
   // Sets whether the compiler automatically assigns locations to
   // uniform variables that don't have explicit locations.
   void SetAutoMapLocations(bool auto_map) {
@@ -342,12 +352,24 @@ class CompileOptions {
     shaderc_compile_options_set_hlsl_functionality1(options_, enable);
   }
 
+  // Sets whether 16-bit types are supported in HLSL or not.
+  void SetHlsl16BitTypes(bool enable) {
+    shaderc_compile_options_set_hlsl_16bit_types(options_, enable);
+  }
+
+  // Enables or disables relaxed Vulkan rules.
+  //
+  // This allows most OpenGL shaders to compile under Vulkan semantics.
+  void SetVulkanRulesRelaxed(bool enable) {
+    shaderc_compile_options_set_vulkan_rules_relaxed(options_, enable);
+  }
+
   // Sets whether the compiler should invert position.Y output in vertex shader.
   void SetInvertY(bool enable) {
     shaderc_compile_options_set_invert_y(options_, enable);
   }
 
-  // Sets whether the compiler should generates code for max an min which,
+  // Sets whether the compiler should generate code for max and min which,
   // if given a NaN operand, will return the other operand. Similarly, the
   // clamp builtin will favour the non-NaN operands, as if clamp were
   // implemented as a composition of max and min.
