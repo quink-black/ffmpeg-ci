@@ -1,8 +1,9 @@
 ---
-description: "Build FFmpeg in debug, optimized, and optimized+ASAN configs"
+description: "Check FFmpeg builds in the debug, release, and ASan release profiles"
 allowed-tools: Bash(./cibuild.sh:*)
 ---
 
-Build FFmpeg in three configurations (debug, optimized, optimized+ASAN) with tests skipped.
+Build FFmpeg in the debug, release, and ASan release profiles with FATE skipped.
+Set `FFMPEG_SRC` to use a specific FFmpeg worktree.
 
-!`unset -f rm 2>/dev/null; unalias rm 2>/dev/null; FFMPEG_SRC=$PWD/../ffmpeg; if [ ! -d "$FFMPEG_SRC" ]; then FFMPEG_SRC=$PWD/../master_ffmpeg; fi; ./cibuild.sh --path "$FFMPEG_SRC" --skip_test && ./cibuild.sh --path "$FFMPEG_SRC" --enable_opt 1 --skip_test && ./cibuild.sh --path "$FFMPEG_SRC" --enable_opt 1 --enable_asan 1 --skip_test`
+!`./cibuild.sh ${FFMPEG_SRC:+--path "$FFMPEG_SRC"} --profile debug --skip-test && ./cibuild.sh ${FFMPEG_SRC:+--path "$FFMPEG_SRC"} --profile release --skip-test && ./cibuild.sh ${FFMPEG_SRC:+--path "$FFMPEG_SRC"} --profile asan-release --skip-test`
