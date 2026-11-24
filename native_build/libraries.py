@@ -42,7 +42,7 @@ DEPENDENCIES = {
     'vulkan_loader': Dependency('vulkan_loader', 'cmake', ('-DENABLE_WERROR=OFF', '-DUSE_MASM=OFF'),
                                 requires=('vulkan_header',), module='vulkan', default=True,
                                 probes=('xcb', 'x11', 'xrandr', 'wayland-client')),
-    'vvdec': Dependency('vvdec', 'cmake', ('-DBUILD_SHARED_LIBS=OFF',),
+    'vvdec': Dependency('vvdec', 'cmake', ('-DBUILD_SHARED_LIBS=OFF', '-DVVDEC_INSTALL_VVDECAPP=ON'),
                         module='libvvdec', feature='libvvdec'),
     'vvenc': Dependency('vvenc', 'cmake', ('-DBUILD_SHARED_LIBS=OFF',
                                           '-DVVENC_ENABLE_LINK_TIME_OPT=OFF',

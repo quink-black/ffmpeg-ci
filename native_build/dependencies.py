@@ -147,7 +147,11 @@ def recipe_options(name, dep, env):
 
 
 def fix_aom_nasm_probe(source):
-    path = source / 'build' / 'cmake' / 'aom_optimization.cmake'
+    path = source / 'cmake' / 'aom_optimization.cmake'
+    if not path.is_file():
+        path = source / 'build' / 'cmake' / 'aom_optimization.cmake'
+        if not path.is_file():
+            return
     text = path.read_text(encoding='utf-8')
     help_check = '  if(NOT "${nasm_helptext}" MATCHES "-Ox")'
     if help_check not in text:
