@@ -93,8 +93,6 @@ def build_environment():
         env[key] = env.get(key) or default
     if DARWIN:
         env.setdefault('MACOSX_DEPLOYMENT_TARGET', '11.0')
-    if (LEGACY_PREFIX / 'bin').is_dir():
-        env['PATH'] = os.pathsep.join((str(LEGACY_PREFIX / 'bin'), env['PATH']))
     return env
 
 

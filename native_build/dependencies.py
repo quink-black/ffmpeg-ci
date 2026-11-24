@@ -161,14 +161,34 @@ def recipe_options(name, dep, env):
     return options
 
 
+def fix_aom_nasm_probe(source):
+    path = source / 'build' / 'cmake' / 'aom_optimization.cmake'
+    text = path.read_text(encoding='utf-8')
+    help_check = '  if(NOT "${nasm_helptext}" MATCHES "-Ox")'
+    if help_check not in text:
+        return
+    # NASM 3 still accepts -Ox but omits that spelling from -hf.
+    assemble_check = '''  set(probe "${CMAKE_CURRENT_BINARY_DIR}/nasm-optimization-probe")
+  file(WRITE "${probe}.asm" "nop\\n")
+  execute_process(COMMAND "${CMAKE_ASM_NASM_COMPILER}" -Ox -f bin
+                          -o "${probe}.bin" "${probe}.asm"
+                  RESULT_VARIABLE nasm_optimization_result)
+  file(REMOVE "${probe}.asm" "${probe}.bin")
+  if(NOT nasm_optimization_result STREQUAL "0")'''
+    path.write_text(text.replace(help_check, assemble_check), encoding='utf-8')
+
+
 def build_recipe(name, dep, source, directory, prefix, env, jobs, options, requirements):
     build_dir = directory / 'build'
     if source.is_file():
         source = unpack_source(source, directory / 'source', env)
-    if dep.backend in ('cmake-copy', 'davs2', 'autogen'):
+    aom_x86 = name == 'aom' and ARCH in ('x86_64', 'amd64', 'i386', 'i686', 'x86')
+    if aom_x86 or dep.backend in ('cmake-copy', 'davs2', 'autogen'):
         copied = directory / 'source'
         copy_source(source, copied)
         source = copied
+    if aom_x86:
+        fix_aom_nasm_probe(source)
     if dep.backend.startswith('cmake'):
         cmake(source, build_dir, prefix, env, jobs, options)
         run(['cmake', '--install', build_dir], env=env)
