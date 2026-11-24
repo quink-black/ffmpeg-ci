@@ -179,8 +179,8 @@ fi
 
 if [ "${enable_x264}" -eq 1 ]; then
     # x264's configure rejects the Android strip; use a no-op during build
-    export STRIP=echo
-    ./build_x264.sh
+    STRIP=echo "${DIR}/cross/build_x264.sh" \
+        "${build_dir}/x264-android-${ANDROID_ABI}" "${install_dir}" "${HOST}"
 fi
 export STRIP="${TOOLCHAIN}/bin/llvm-strip"
 

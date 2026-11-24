@@ -1,6 +1,6 @@
 #!/bin/bash
 # Download and install ONNX Runtime (CPU) into install/ so that
-# build_ffmpeg.sh auto-detects it and passes --enable-libonnxruntime to
+# cibuild.sh auto-detects it and passes --enable-libonnxruntime to
 # FFmpeg's configure.
 #
 # Why a script: Ubuntu apt and snap have NO onnxruntime package.
@@ -16,7 +16,7 @@
 # libonnxruntime.pc, but it is hardcoded to
 #   prefix=/usr/local  libdir=${prefix}/lib64  includedir=${prefix}/include/onnxruntime
 # which matches neither the tarball's own layout (flat include/, lib/ not
-# lib64/) nor this repo's install/ layout. build_ffmpeg.sh therefore probes
+# lib64/) nor this repo's install/ layout. The build therefore probes
 # onnxruntime directly (compile+link the real symbol) instead of relying
 # on pkg-config. This script just lays out headers and libs; no .pc is
 # installed.
@@ -25,11 +25,6 @@
 #   install/include/onnxruntime_c_api.h        (+ other flat *.h + core/)
 #   install/lib/libonnxruntime.so -> .so.1 -> .so.1.28.0
 #   install/lib/libonnxruntime_providers_shared.so   (if shipped)
-#
-# Because install/include is already on the default include path and
-# install/lib on the default lib path (env.sh + build_ffmpeg.sh defaults),
-# build_ffmpeg.sh needs no extra -I/-L for this layout -- it only adds
-# --enable-libonnxruntime.
 #
 # Usage:
 #   ./install_onnxruntime.sh                              # default version

@@ -4,8 +4,6 @@
       "Bash(source:*)",
       "Bash(make:*)",
       "Bash(./cibuild.sh:*)",
-      "Bash(./build_ffmpeg.sh:*)",
-      "Bash(./build_*.sh:*)",
       "Bash(ls:*)",
       "Bash(find:*)",
       "Bash(grep:*)",

@@ -51,8 +51,7 @@ A cache key includes the recipe, source identity, environment, tools, and
 required package keys. The build holds a per-key lock and marks the prefix
 complete after a successful install. FFmpeg adds selected prefixes to its
 discovery paths and can also discover optional libraries through pkg-config.
-Legacy manual helpers and `install_onnxruntime.sh` can supply dependencies from
-`install/`.
+`install_onnxruntime.sh` can supply ONNX Runtime from `install/`.
 
 ## Other targets
 
@@ -60,13 +59,15 @@ Legacy manual helpers and `install_onnxruntime.sh` can supply dependencies from
 |---|---|---|
 | `android_ffmpeg.sh` | Android arm64/armv7 | `ANDROID_NDK` and prebuilt Vulkan/shaderc in `prebuilt_android/` |
 | `wasi_ffmpeg.sh` | wasm32-wasi | `WASI_SDK_PREFIX` |
+| `cross/build_openh264_wasi.sh` | OpenH264 for wasm32-wasi | `WASI_SDK_PREFIX` and OpenH264 sources with WASI support |
 | `emsdk_ffmpeg.sh` | wasm32 for Node or Chrome | `EMSDK` |
 | `hm_ffmpeg.sh` | HarmonyOS arm64 | `OHOS_SDK_NATIVE` |
 | `win/build.bat` | Windows x64 with MSVC | Visual Studio, MSYS2 and vcpkg, as described in `win/README.md` |
 
 Read `android/README.md` before modifying the Android app or verifying FFmpeg
 on a phone through adb.
-The cross-compilation helpers use `env.sh` for their build environment.
+The FFmpeg cross-compilation entry points use `env.sh` for their build environment.
+Android and HarmonyOS use `cross/build_x264.sh` when `--enable_x264 1` is set.
 
 ## Tests
 

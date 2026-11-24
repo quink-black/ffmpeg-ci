@@ -83,8 +83,9 @@ if which ccache; then
 fi
 
 if [ "$enable_x264" -eq 1 ]; then
-    # x264 strip有些错误，做个假的strip
-    STRIP=echo HOST=aarch64-unknown-linux ./build_x264.sh
+    # x264's configure rejects the SDK strip during cross-compilation.
+    STRIP=echo "${DIR}/cross/build_x264.sh" \
+        "${build_dir}/x264-hm-${arch}" "${install_dir}" aarch64-unknown-linux
 fi
 
 mkdir -p $build_dir

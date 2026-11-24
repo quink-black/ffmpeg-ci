@@ -90,14 +90,11 @@ def main(argv):
         dependency_command(argv[0], argv[1:], env)
         return
 
-    legacy = bool(argv and argv[0] == '--legacy')
-    if legacy:
-        argv = argv[1:]
     parser = argparse.ArgumentParser(
-        prog='build_ffmpeg.sh' if legacy else 'cibuild.sh',
+        prog='cibuild.sh',
         epilog='Use cibuild.sh deps to build only dependencies, or cibuild.sh list-deps to list them.')
     ffmpeg_options(parser)
-    parser.set_defaults(test=not legacy, reuse_deps=legacy)
+    parser.set_defaults(test=True)
     args = parser.parse_args(argv)
     if args.profile and any(value is not None for value in (args.enable_asan, args.enable_opt)):
         parser.error('--profile cannot be combined with --enable_asan or --enable_opt')
