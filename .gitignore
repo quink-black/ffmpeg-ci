@@ -31,7 +31,8 @@ wdblogs/
 # CLion / IntelliJ
 .idea/
 
-ffmpeg-fate-sample/
+# Keep slash-free: a trailing slash matches directories only, not a symlink.
+/ffmpeg-fate-sample
 
 # CodeBuddy Code per-user data
 .codebuddy/memory/
