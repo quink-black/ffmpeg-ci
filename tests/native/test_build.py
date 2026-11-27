@@ -13,9 +13,68 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'native_build'))
 import common
 import dependencies
 import ffmpeg
+import main as native_cli
 
 
 class BuildStateTests(unittest.TestCase):
+    def test_asan_probe_uses_the_configured_linker(self):
+        success = SimpleNamespace(returncode=0, stdout='')
+        with (
+            patch.object(ffmpeg, 'WINDOWS', True),
+            patch.object(ffmpeg, 'output', return_value=SimpleNamespace(stdout='clang version')),
+            patch.object(ffmpeg.subprocess, 'run', return_value=success) as run,
+        ):
+            settings = ffmpeg.asan_settings(
+                {'CC': 'cc', 'CXX': 'c++', 'LDFLAGS': '-Lenv'},
+                ['--cc=clang', '--ld=clang++', '--extra-ldflags=-Lfirst',
+                 '--extra-ldflags=-Lsecond', '--extra-ldexeflags=-Lexe'])
+
+        self.assertEqual(settings, ('--toolchain=clang-asan', [], []))
+        compile_args, link_args = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(compile_args[0], 'clang')
+        self.assertIn('-c', compile_args)
+        self.assertEqual(link_args[0], 'clang++')
+        self.assertEqual(link_args[1:5], ['-Lenv', '-Lfirst', '-Lsecond', '-Lexe'])
+        self.assertIn('-fsanitize=address', link_args)
+
+    def test_windows_gcc_missing_asan_runtime(self):
+        def check(command, **kwargs):
+            if command[0] == 'c++' and '-fsanitize=address' in command:
+                self.assertNotIn('-static-libasan', command)
+                return SimpleNamespace(returncode=1, stdout='cannot find -lasan')
+            return SimpleNamespace(returncode=0, stdout='')
+
+        with (
+            patch.object(ffmpeg, 'WINDOWS', True),
+            patch.object(ffmpeg, 'output', return_value=SimpleNamespace(stdout='GCC')),
+            patch.object(ffmpeg.subprocess, 'run', side_effect=check),
+        ):
+            with self.assertRaisesRegex(ffmpeg.ASanUnavailable, 'cannot find -lasan'):
+                ffmpeg.asan_settings({'CC': 'cc', 'CXX': 'c++'}, [])
+
+    def test_unsupported_asan_skips_only_on_request(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp).resolve()
+            (source / 'configure').touch()
+            args = ['--path', str(source), '--profile', 'asan-release']
+            unavailable = ffmpeg.ASanUnavailable('missing ASan runtime')
+            with (
+                contextlib.redirect_stdout(io.StringIO()) as stdout,
+                patch.object(native_cli, 'asan_settings', side_effect=unavailable) as probe,
+                patch.object(native_cli, 'resolve') as resolve,
+                patch.object(native_cli, 'build_ffmpeg') as build,
+            ):
+                with self.assertRaisesRegex(ffmpeg.ASanUnavailable, 'missing ASan runtime'):
+                    native_cli.main(args)
+                native_cli.main([*args, '--skip-unsupported-asan'])
+                self.assertIn('Skipping asan-release: missing ASan runtime', stdout.getvalue())
+
+                probe.side_effect = common.BuildError('ordinary toolchain failure')
+                with self.assertRaisesRegex(common.BuildError, 'ordinary toolchain failure'):
+                    native_cli.main([*args, '--skip-unsupported-asan'])
+                resolve.assert_not_called()
+                build.assert_not_called()
+
     def test_cli_profile_selection(self):
         cibuild = common.ROOT / 'cibuild.sh'
         for arguments, profile in (

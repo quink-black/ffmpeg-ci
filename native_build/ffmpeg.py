@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common import (BUILD, DARWIN, STATE, WINDOWS, digest,
+from common import (BUILD, DARWIN, STATE, WINDOWS, BuildError, digest,
                     environment_identity, file_digest, lock, make, output, pkg_config,
                     pkg_metadata, run, with_prefixes, write_state)
 from libraries import DEPENDENCIES
@@ -30,6 +30,67 @@ OPTIONAL_LIBS = (
 )
 
 PROFILES = ('debug', 'release', 'asan', 'asan-release')
+
+
+class ASanUnavailable(BuildError):
+    pass
+
+
+def asan_settings(env, configure_args):
+    options = [arg.split('=', 1) for arg in configure_args if '=' in arg]
+    overrides = dict(options)
+    if '--toolchain' in overrides:
+        # An explicit FFmpeg toolchain supplies its own sanitizer flags.
+        return None
+
+    cc = shlex.split(overrides.get('--cc', env['CC']))
+    ld = shlex.split(overrides.get('--ld', env['CXX']))
+    clang = 'clang' in output([*cc, '--version'], env=env).stdout.lower()
+    toolchain = '--toolchain=clang-asan' if clang else '--toolchain=gcc-asan'
+    sanitizer = '-fsanitize=address'
+    cflags = []
+    ldflags = [] if clang or WINDOWS else ['-static-libasan']
+    user_ldflags = shlex.split(env.get('LDFLAGS', ''))
+    for option, value in options:
+        if option in ('--extra-ldflags', '--extra-ldexeflags'):
+            user_ldflags.extend(shlex.split(value))
+    description = f'CC={shlex.join(cc)} and linker={shlex.join(ld)}'
+
+    with TemporaryDirectory() as tmp:
+        directory = Path(tmp)
+        source = directory / 'probe.c'
+        obj = directory / 'probe.o'
+        source.write_text('int main(void) { volatile int a[2] = {0}; return a[0]; }\n',
+                          encoding='ascii')
+        compile_args = [*cc, *shlex.split(env.get('CPPFLAGS', '')),
+                        *shlex.split(overrides.get('--extra-cflags', env.get('CFLAGS', ''))),
+                        '-c', source, '-o', obj]
+        link_args = [*ld, *user_ldflags, obj, '-o', directory / 'probe']
+
+        def check(command):
+            return subprocess.run(command, env=env, stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT, text=True, check=False)
+
+        def compile_and_link(compile_flags=(), link_flags=()):
+            result = check([*compile_args, *compile_flags])
+            return result if result.returncode else check([*link_args, *link_flags])
+
+        result = compile_and_link([sanitizer], [sanitizer, *ldflags])
+        if result.returncode:
+            baseline = compile_and_link()
+            if baseline.returncode:
+                raise BuildError(f'Compiler/linker check failed with {description}:\n'
+                                 f'{baseline.stdout.strip()}')
+            raise ASanUnavailable(f'AddressSanitizer is unavailable with {description}. '
+                                  'Select CC and CXX for a toolchain with an ASan runtime.\n'
+                                  f'{result.stdout.strip()}')
+
+        # GCC's stack-use-after-return instrumentation can dominate short DSP calls.
+        param = '--param=asan-use-after-return=0'
+        if not clang and check([*compile_args, sanitizer, param]).returncode == 0:
+            cflags.append(param)
+
+    return toolchain, cflags, ldflags
 
 
 def build_dir(source, profile, variant):
@@ -195,7 +256,7 @@ def external_options(configure, env, directory, managed, prefixes, asan, optiona
     return config, cflags, ldflags, libraries, runtime_dirs, pkg_metadata(env, modules)
 
 
-def configure_flags(args, source, directory, env, managed, prefixes, samples):
+def configure_flags(args, source, directory, env, managed, prefixes, samples, *, sanitizer=None):
     configure_path = source / 'configure'
     configure = configure_path.read_text(encoding='utf-8')
     asan = args.profile.startswith('asan')
@@ -203,17 +264,12 @@ def configure_flags(args, source, directory, env, managed, prefixes, samples):
         probe_dir = Path(tmp)
         config, cflags, ldflags, libraries, runtime_dirs, metadata = external_options(
             configure, env, probe_dir, managed, prefixes, asan, not args.no_optional_libs)
-        if asan:
-            version = output([*shlex.split(env['CC']), '--version'], env=env).stdout
-            if 'clang' in version.lower():
-                config.append('--toolchain=clang-asan')
-            else:
-                config.append('--toolchain=gcc-asan')
-                ldflags.append('-static-libasan')
-                # GCC's stack-use-after-return instrumentation can dominate short DSP calls.
-                param = '--param=asan-use-after-return=0'
-                if probe_link(env, probe_dir, cflags=['-fsanitize=address', param]):
-                    cflags.append(param)
+
+    if sanitizer is not None:
+        toolchain, sanitizer_cflags, sanitizer_ldflags = sanitizer
+        config.append(toolchain)
+        cflags.extend(sanitizer_cflags)
+        ldflags.extend(sanitizer_ldflags)
 
     if args.profile in ('debug', 'asan'):
         config.extend(['--enable-debug', '--disable-optimizations'])
@@ -281,7 +337,7 @@ def runtime_environment(directory, prefixes, shared):
             if name in ('PATH', 'LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH') and value}
 
 
-def build_ffmpeg(args, source, directory, env, managed, prefixes, samples):
+def build_ffmpeg(args, source, directory, env, managed, prefixes, samples, *, sanitizer=None):
     with lock(STATE / f'ffmpeg-{digest(str(directory))}.lock'):
         if args.clean:
             if (directory / 'ffbuild' / 'config.mak').is_file():
@@ -289,7 +345,8 @@ def build_ffmpeg(args, source, directory, env, managed, prefixes, samples):
             return
         directory.mkdir(parents=True, exist_ok=True)
         config_env = with_prefixes(env, prefixes)
-        flags, metadata = configure_flags(args, source, directory, config_env, managed, prefixes, samples)
+        flags, metadata = configure_flags(args, source, directory, config_env, managed, prefixes,
+                                          samples, sanitizer=sanitizer)
         tools = [env[key] for key in ('CC', 'CXX', 'MAKE', 'PKG_CONFIG')]
         tools.extend(['ccache', 'nasm', 'glslc', 'glslangValidator', env.get('AR', 'ar')])
         configure = source / 'configure'

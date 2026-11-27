@@ -18,6 +18,8 @@ git submodule update --init --recursive
 
 默认的 `release` 配置开启优化并保留调试信息。需要关闭优化时，传入 `--profile debug`。`asan` 和 `asan-release` 分别在 `debug` 和 `release` 配置中启用 AddressSanitizer。如果构建环境使用 NVIDIA Vulkan ICD，ASan 配置会关闭 Vulkan。
 
+ASan 配置要求所选编译器和链接器能够链接 AddressSanitizer。MSYS2 MinGW GCC 缺少 ASan 运行库时，显式请求 ASan 会在构建依赖前报出链接错误。构建矩阵可用 `--skip-unsupported-asan` 跳过自动检测为不支持 ASan 的工具链。
+
 入口会在构建结束时打印二进制文件的路径。`--install` 会把 FFmpeg 安装到该构建目录的 `install/` 子目录。脚本或调试器可以用 `--print-build-dir` 查找对应的目录。
 
 ```bash

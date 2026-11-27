@@ -11,7 +11,7 @@ if os.name != 'posix':
 from common import DEFAULT_SOURCE, LEGACY_PREFIX, ROOT, WINDOWS, BuildError, build_environment
 from dependencies import resolve, select, supported
 from libraries import DEPENDENCIES
-from ffmpeg import PROFILES, build_dir, build_ffmpeg
+from ffmpeg import PROFILES, ASanUnavailable, asan_settings, build_dir, build_ffmpeg
 
 
 def positive_int(value):
@@ -58,6 +58,8 @@ def ffmpeg_options(parser):
     parser.add_argument('--reconfigure', action='store_true', help='rerun FFmpeg configure')
     parser.add_argument('--reuse-deps', action='store_true',
                         help='use cached managed dependencies and skip building missing ones')
+    parser.add_argument('--skip-unsupported-asan', action='store_true',
+                        help='skip an ASan profile when automatic toolchain selection finds no ASan support')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--print-build-dir', action='store_true', help='print the build directory and exit')
     mode.add_argument('--clean', action='store_true', help='run make clean in the selected FFmpeg build')
@@ -128,9 +130,20 @@ def main(argv):
     if not args.no_optional_libs and LEGACY_PREFIX.is_dir():
         extra.append(LEGACY_PREFIX.resolve())
     names = select(args.deps)
+    sanitizer = None
+    if not args.clean and args.profile.startswith('asan'):
+        try:
+            sanitizer = asan_settings(env, args.configure_arg)
+        except ASanUnavailable as error:
+            if not args.skip_unsupported_asan:
+                raise
+            print(f'Skipping {args.profile}: {error}', flush=True)
+            return
+
     managed = {} if args.clean else resolve(names, env, args.jobs, build=not args.reuse_deps)
     prefixes = list(dict.fromkeys([*reversed(managed.values()), *extra]))
-    build_ffmpeg(args, source, directory, env, managed, prefixes, absolute_path(args.samples))
+    build_ffmpeg(args, source, directory, env, managed, prefixes, absolute_path(args.samples),
+                 sanitizer=sanitizer)
 
 
 if __name__ == '__main__':
