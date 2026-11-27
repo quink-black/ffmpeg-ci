@@ -21,7 +21,7 @@ DEPENDENCIES = {
     'dav1d': Dependency('dav1d', 'meson', ('-Denable_tests=false',),
                         module='dav1d', feature='libdav1d', default=True),
     'davs2': Dependency('davs2', 'davs2', module='davs2', feature='libdavs2', default=True),
-    'libplacebo': Dependency('libplacebo', 'meson', ('--buildtype=debug',),
+    'libplacebo': Dependency('libplacebo', 'meson', ('--buildtype=debug', '-Ddemos=false'),
                              requires=('cms', 'vulkan_loader'), module='libplacebo',
                              feature='libplacebo', default=True, probes=(
                                  'shaderc', 'shaderc_combined', 'glslang', 'spirv', 'egl', 'gl',

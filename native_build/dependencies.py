@@ -210,6 +210,14 @@ def build_recipe(name, dep, source, directory, prefix, env, jobs, options, requi
              '--buildtype=release', '-Ddefault_library=static', f'--prefix={prefix}',
              '--libdir=lib', *options], env=env)
         run(['ninja', '-C', build_dir, '-j', jobs, 'install'], env=env)
+        if name == 'libplacebo' and not DARWIN:
+            # The static archive contains C++ objects, but meson's generated .pc
+            # omits the C++ runtime. Libs.private follows Libs so --as-needed
+            # keeps the runtime after -lplacebo pulls those objects in. Darwin
+            # links libc++ and does not pass --as-needed.
+            pc = prefix / 'lib' / 'pkgconfig' / 'libplacebo.pc'
+            pc.write_text(pc.read_text(encoding='utf-8').rstrip('\n')
+                          + '\nLibs.private: -lstdc++\n', encoding='utf-8')
     elif dep.backend == 'davs2':
         # The AVS2 configure scripts resolve their sources relative to the working directory.
         work = source / 'build' / 'linux'
